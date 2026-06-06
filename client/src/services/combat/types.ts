@@ -93,10 +93,15 @@ export interface BuffInstance {
 }
 
 // ============================================================
-// §5.3 CombatAction — 6 种动作判别联合
+// §5.3 CombatAction — 5 种动作判别联合
 // ============================================================
+//
+// v0.5-dev 变更:
+// - 移除 `skill` 动作: 当前没有配套的魔法/技能系统 (SkillRegistry),
+//   先在战斗动作集里隐藏, 后续 SkillRegistry 落地后再加回.
+// - 攻击 2 AP / 防御 1 AP / 物品 0 AP / 逃跑 0 AP / 休息 0 AP.
 
-export type CombatActionKind = 'attack' | 'skill' | 'item' | 'flee' | 'defend' | 'wait';
+export type CombatActionKind = 'attack' | 'item' | 'flee' | 'defend' | 'wait';
 
 export interface ActionCost {
   ap: number;
@@ -105,12 +110,11 @@ export interface ActionCost {
 
 export type CombatAction =
   | { kind: 'attack'; attackerId: string; targetId: string }
-  | { kind: 'skill'; userId: string; skillId: string; targetId?: string; cost: ActionCost }
   | { kind: 'item'; userId: string; itemId: string; targetId?: string }
   | { kind: 'flee'; userId: string }
-  /** 防御: +AC, 下回合受到伤害 -50%, 消耗 2 AP */
+  /** 防御: 提升目标闪避门槛 (累计闪避惩罚), 消耗 1 AP */
   | { kind: 'defend'; userId: string; cost: ActionCost }
-  /** 跳过本回合, 留 AP 给下回合 */
+  /** 跳过本回合, 恢复 1 AP (受 maxAp clamp) */
   | { kind: 'wait'; userId: string };
 
 // ============================================================
@@ -256,11 +260,10 @@ export function isAlive(c: Combatant): boolean {
   return !c.isDead && c.hp > 0;
 }
 
-/** 防御 + AC 加成 (spec §5.3 defend 效果) */
-export const DEFEND_AC_BONUS = 2;
-/** 防御下一回合伤害减免 */
-export const DEFEND_DAMAGE_REDUCTION = 0.5;
-/** 防御 AP 消耗 (spec §5.3 self-review) */
+/** 防御动作: 本回合内 defender 的命中门槛 +DEFEND_THRESHOLD_BONUS. */
+export const DEFEND_THRESHOLD_BONUS = 2;
+
+/** 防御动作消耗: 1 AP. */
 export const DEFEND_AP_COST = 1;
 /** 默认最大 AP (战旗风格) */
 export const DEFAULT_MAX_AP = 6;

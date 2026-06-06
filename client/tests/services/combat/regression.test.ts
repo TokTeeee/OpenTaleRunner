@@ -1,12 +1,19 @@
 /**
- * v0.4 战斗系统 — 回归测试 (T7.3)
+ * v0.5-dev 战斗系统 — 回归测试 (T7.3)
  *
- * 锁定 v0.3 → v0.4 升级契约: 6 维公式 + ConditionsRegistry 派生 + ItemEffect schema 兼容.
+ * 锁定 v0.3 → v0.4 → v0.5-dev 升级契约: 6 维公式 + ConditionsRegistry 派生 + ItemEffect schema 兼容.
  *
- * 这些测试是 "契约" 性质 — 防止 v0.4 战斗系统的重构破坏 v0.3 已有行为.
+ * 这些测试是 "契约" 性质 — 防止 v0.5-dev 战斗系统的重构破坏 v0.3/v0.4 已有行为.
  * 任何修改若让这些测试失败, 必须明确说明意图.
  *
- * 详见 spec: docs/superpowers/specs/2026-06-04-v04-combat-system-design.md
+ * v0.5-dev 变更:
+ * - 命中公式: d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty
+ * - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
+ * - 闪避衰减: DODGE_PENALTY_STEP = 5
+ * - checkHit 替代 checkDodge (平局算命中)
+ * - 移除: rollDodge / computeAC (合并到 hitThreshold)
+ *
+ * 详见: docs/zh/战斗系统.md §2.6
  */
 
 import { describe, expect, it, afterEach, beforeEach } from 'vitest';
@@ -25,12 +32,12 @@ import {
 import {
   effectiveAttribute,
   rollToHit,
-  rollDodge,
+  hitThreshold,
+  checkHit,
   rollDamage,
-  computeAC,
+  DODGE_PENALTY_STEP,
   fleeChance,
   rollFlee,
-  checkDodge,
   noopQTEProvider,
 } from '../../../src/services/combat/ActionResolver';
 import { makeConstRoll } from '../../../src/services/combat/dice';
@@ -119,10 +126,10 @@ describe('regression: v0.3 6 维公式契约 (effectiveAttribute)', () => {
 });
 
 // ============================================================
-// 1.b 6 维公式契约 — 命中/闪避/伤害/flee
+// 1.b 6 维公式契约 — 命中/闪避/伤害/flee (v0.5-dev 文档版)
 // ============================================================
 
-describe('regression: v0.3 6 维公式契约 (命中/闪避/伤害/flee)', () => {
+describe('regression: v0.5-dev 6 维公式契约 (命中/闪避/伤害/flee)', () => {
   function mkCombatant(over: Partial<Combatant>): Combatant {
     return {
       id: 'x', side: 'player', name: 'X',
@@ -134,59 +141,88 @@ describe('regression: v0.3 6 维公式契约 (命中/闪避/伤害/flee)', () =>
     };
   }
 
-  it('命中: 2d6 + STR_mod + weapon/2 (v0.3 契约)', () => {
-    const c = mkCombatant({ attributes: { ...mkCombatant({}).attributes, STR: 14 } });
-    const r = rollToHit(c, makeConstRoll([5, 5]));
-    // STR 14 → +2, no weapon → 5+5+2+0 = 12
+  it('命中: d20 + DEX_mod (v0.5-dev 文档版)', () => {
+    const c = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 14 } });
+    const r = rollToHit(c, makeConstRoll([10]));
+    // DEX 14 → +2, d20=10 → total=12
+    expect(r.d20).toBe(10);
+    expect(r.dexMod).toBe(2);
     expect(r.total).toBe(12);
   });
 
-  it('闪避: 2d6 + DEX_mod + AC (含 armor + defend_bonus)', () => {
-    const c = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 16 } });
-    const r = rollDodge(c, false, makeConstRoll([4, 4]));
-    // DEX 16 → +3, AC = 10+3+0 = 13 → 4+4+13 = 21
-    expect(r.total).toBe(21);
+  it('命中门槛: 10 + DEX_mod + armor + dodgePenalty (v0.5-dev 文档版)', () => {
+    const c = mkCombatant({
+      attributes: { ...mkCombatant({}).attributes, DEX: 16 },
+      equipped: { weapon: null, armor: { id: 'a1', name: '甲', slot: 'armor', effects: [{ type: 'defense_bonus', value: 3 }] } as never, accessory: null },
+    });
+    const t = hitThreshold(c, 0, false);
+    // DEX 16 → +3, defense=3 → 10+3+3+0 = 16
+    expect(t.dexMod).toBe(3);
+    expect(t.defense).toBe(3);
+    expect(t.total).toBe(16);
   });
 
-  it('伤害: base = max(1, weapon + STR_mod) (v0.3 契约)', () => {
+  it('命中门槛: defending 状态 +2 (v0.5-dev 文档版)', () => {
+    const c = mkCombatant({});
+    const t = hitThreshold(c, 0, true);
+    expect(t.defendingBonus).toBe(2);
+    expect(t.total).toBe(12); // 10 + 0 + 0 + 0 + 2
+  });
+
+  it('命中门槛: dodgePenalty 累积 (v0.5-dev 闪避衰减)', () => {
+    const c = mkCombatant({});
+    const t = hitThreshold(c, 15, false);
+    // 10 + 0 + 0 + 15 + 0 = 25
+    expect(t.total).toBe(25);
+  });
+
+  it('checkHit: attackRoll >= threshold → true (v0.5-dev 平局算命中)', () => {
+    expect(checkHit(10, 10)).toBe(true);  // 平局
+    expect(checkHit(15, 12)).toBe(true);  // 大于
+    expect(checkHit(8, 12)).toBe(false);  // 小于
+  });
+
+  it('DODGE_PENALTY_STEP = 5 (闪避衰减常量)', () => {
+    expect(DODGE_PENALTY_STEP).toBe(5);
+  });
+
+  it('伤害: base = max(1, d6 + STR_mod + weapon - target.defense) (v0.5-dev 文档版)', () => {
     const weapon: Item = { id: 'w1', name: '剑', slot: 'weapon', rarity: 'common', tags: [], description: '', value: 0, effects: [{ type: 'damage_bonus', value: 6, description: '+6' } as ItemEffect] };
-    const c = mkCombatant({
+    const attacker = mkCombatant({
       attributes: { ...mkCombatant({}).attributes, STR: 16 },
       equipped: { weapon, armor: null, accessory: null } as Combatant['equipped'],
     });
-    // STR 16 → +3, weapon 6 → base = 9
-    expect(rollDamage(c, 0, 0.3, makeConstRoll([1]))).toBe(9);
+    const target = mkCombatant({});
+    // d6=4, STR 16 → +3, weapon=6, defense=0 → max(1, 4+3+6-0) = 13
+    const r = rollDamage(attacker, target, 0, 0.3, makeConstRoll([4]));
+    expect(r.base).toBe(13);
+    expect(r.total).toBe(13);
   });
 
-  it('伤害 clamp: 无武器 + 低 STR 时 base = max(1, ...) (v0.3 契约)', () => {
-    const c = mkCombatant({ attributes: { ...mkCombatant({}).attributes, STR: 6 } });
-    // STR 6 → -2, no weapon → max(1, 0 + -2) = 1
-    expect(rollDamage(c, 0, 0.3, makeConstRoll([1]))).toBe(1);
+  it('伤害 clamp: 低 d6 - 高 defense 时 base = max(1, ...) (v0.5-dev 文档版)', () => {
+    const armor: Item = { id: 'a1', name: '重甲', slot: 'armor', rarity: 'common', tags: [], description: '', value: 0, effects: [{ type: 'defense_bonus', value: 10 } as ItemEffect] };
+    const attacker = mkCombatant({ attributes: { ...mkCombatant({}).attributes, STR: 6 } });
+    const target = mkCombatant({ equipped: { weapon: null, armor, accessory: null } as Combatant['equipped'] });
+    // d6=1, STR 6 → -2, weapon=0, defense=10 → max(1, 1-2+0-10) = 1
+    const r = rollDamage(attacker, target, 0, 0.3, makeConstRoll([1]));
+    expect(r.base).toBe(1);
+    expect(r.total).toBe(1);
   });
 
-  it('伤害: QTE modifier 不参与, 只缩放 (damage = base * (1 + qteMod * scale))', () => {
+  it('伤害: QTE modifier 只缩放, base = max(1, d6 + STR_mod + weapon - defense) (v0.5-dev)', () => {
     const weapon: Item = { id: 'w1', name: '剑', slot: 'weapon', rarity: 'common', tags: [], description: '', value: 0, effects: [{ type: 'damage_bonus', value: 4, description: '+4' } as ItemEffect] };
-    const c = mkCombatant({ equipped: { weapon, armor: null, accessory: null } as Combatant['equipped'] });
-    // base = 4 + 0 = 4
-    expect(rollDamage(c, 0, 0.3, makeConstRoll([1]))).toBe(4);
-    expect(rollDamage(c, 1, 0.3, makeConstRoll([1]))).toBe(5); // 4 * 1.3 = 5.2 → 5
-    expect(rollDamage(c, -1, 0.3, makeConstRoll([1]))).toBe(3); // 4 * 0.7 = 2.8 → 3
+    const attacker = mkCombatant({ equipped: { weapon, armor: null, accessory: null } as Combatant['equipped'] });
+    const target = mkCombatant({});
+    // d6=4, STR 10 → 0, weapon=4, defense=0 → base=8
+    // qte=0  → 8
+    // qte=1  → 8 * 1.3 = 10.4 → 10
+    // qte=-1 → 8 * 0.7 = 5.6 → 6
+    expect(rollDamage(attacker, target, 0, 0.3, makeConstRoll([4])).total).toBe(8);
+    expect(rollDamage(attacker, target, 1, 0.3, makeConstRoll([4])).total).toBe(10);
+    expect(rollDamage(attacker, target, -1, 0.3, makeConstRoll([4])).total).toBe(6);
   });
 
-  it('computeAC: 10 + DEX_mod + armor + (defending ? +2 : 0)', () => {
-    const c = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 14 } });
-    // DEX 14 → +2 → AC = 10+2+0 = 12; defending → 14
-    expect(computeAC(c, false)).toBe(12);
-    expect(computeAC(c, true)).toBe(14);
-  });
-
-  it('checkDodge: 闪避 > 命中 → true (v0.3 契约, 平局算命中)', () => {
-    expect(checkDodge(10, 12)).toBe(true);
-    expect(checkDodge(10, 8)).toBe(false);
-    expect(checkDodge(10, 10)).toBe(false);
-  });
-
-  it('fleeChance: clamp(0.3 + (playerDEX - avgEnemyDEX) / 20, 0.1, 0.9) (v0.3 契约)', () => {
+  it('fleeChance: clamp(0.3 + (playerDEX - avgEnemyDEX) / 20, 0.1, 0.9) (v0.3 契约不变)', () => {
     const p = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 10 } });
     const e = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 10 } });
     expect(fleeChance(p, [e])).toBe(0.3);
@@ -196,7 +232,7 @@ describe('regression: v0.3 6 维公式契约 (命中/闪避/伤害/flee)', () =>
     expect(fleeChance(p3, [e])).toBe(0.1); // clamp 下限
   });
 
-  it('rollFlee: d100 <= chance * 100 → success=true (v0.3 契约)', () => {
+  it('rollFlee: d100 <= chance * 100 → success=true (v0.3 契约不变)', () => {
     const p = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 10 } });
     const e = mkCombatant({ attributes: { ...mkCombatant({}).attributes, DEX: 10 } });
     // chance = 0.3
@@ -206,14 +242,16 @@ describe('regression: v0.3 6 维公式契约 (命中/闪避/伤害/flee)', () =>
 
   it('noopQTEProvider 返 modifier=0 (默认 QTE 关闭), 伤害不缩放', () => {
     const weapon: Item = { id: 'w1', name: '剑', slot: 'weapon', rarity: 'common', tags: [], description: '', value: 0, effects: [{ type: 'damage_bonus', value: 5, description: '+5' } as ItemEffect] };
-    const c = mkCombatant({ equipped: { weapon, armor: null, accessory: null } as Combatant['equipped'] });
+    const attacker = mkCombatant({ equipped: { weapon, armor: null, accessory: null } as Combatant['equipped'] });
+    const target = mkCombatant({});
     const noop = noopQTEProvider({
       action: { kind: 'attack', attackerId: 'x', targetId: 'y' },
-      attacker: c, target: c, state: { combatants: { x: c, y: c } } as never,
+      attacker, target, state: { combatants: { x: attacker, y: target } } as never,
     });
     expect(noop.modifier).toBe(0);
-    // base = 5 + 0 = 5, modifier=0 → dmg = 5
-    expect(rollDamage(c, noop.modifier, 0.3, makeConstRoll([1]))).toBe(5);
+    // d6=4, STR 10 → 0, weapon=5, defense=0 → base=9, modifier=0 → 9
+    const r = rollDamage(attacker, target, noop.modifier, 0.3, makeConstRoll([4]));
+    expect(r.total).toBe(9);
   });
 });
 

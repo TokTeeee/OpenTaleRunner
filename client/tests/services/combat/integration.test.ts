@@ -1,7 +1,12 @@
 /**
- * v0.4 战斗系统 — 集成测试 (T7.2)
+ * v0.5-dev 战斗系统 — 集成测试 (T7.2)
  *
  * 端到端验证 6 维公式 + QTE + 物品路由 + 失败惩罚 的协同工作:
+ *
+ * v0.5-dev 变更:
+ * - 命中公式: d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty
+ * - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
+ * - 移除 skill 相关用例
  *
  * 场景:
  *  1. startCombat → 回合循环 (本地, 无 LLM) → endCombat, 整场 2 次 LLM 调用
@@ -12,7 +17,7 @@
  *  6. QTE 开启 + 攻击: 6 维公式不变, 伤害 ±30% (modifier 缩放)
  *  7. QTE 关闭 + 攻击: 伤害 = base (modifier=0)
  *
- * 详见 spec: docs/superpowers/specs/2026-06-04-v04-combat-system-design.md
+ * 详见: docs/zh/战斗系统.md §2.6
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -153,7 +158,8 @@ describe('integration: 整场 startCombat → 回合 → endCombat', () => {
     expect(useCombatStore.getState().phase).toBe('active');
 
     // 2. 玩家攻击几次 (本地, 不算 LLM). 用 constRoll 让玩家必命中.
-    const resolver = createActionResolver({ roll: makeConstRoll([6, 6, 1, 1]) });
+    // v0.5-dev: d20=20 (命中: 20+DEX_mod=22 ≥ 门槛 10), d6=6 (伤害: 6+STR_mod+weapon-defense)
+    const resolver = createActionResolver({ roll: makeConstRoll([20, 6]) });
     const playerHpBefore = useCombatStore.getState().combatants.p1!.hp;
     const enemyHpBefore = useCombatStore.getState().combatants.e1!.hp;
 
@@ -429,8 +435,8 @@ describe('integration: 逃跑分支', () => {
 // ============================================================
 
 describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () => {
-  // 固定 roll 让 6 维公式 (命中/闪避) 决定命中, 之后 QTE 缩放伤害
-  const FIXED_HIT_ROLL = [6, 6, 1, 1] as const; // toHit=12+STR_mod+weapon, dodge=2+10=12; 命中 12+1=13 > 12
+  // v0.5-dev: d20=20 必命中 (20+DEX=22 ≥ 门槛 10), d6=4 → 伤害 base = 4+1+4-0 = 9
+  const FIXED_HIT_ROLL = [20, 4] as const;
 
   it('QTE 关闭: damage = base (modifier=0)', async () => {
     await callTool('startCombat', makeStartCombatArgs());
@@ -447,9 +453,9 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
     const hpBefore = useCombatStore.getState().combatants.e1!.hp;
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
     const dmg = hpBefore - useCombatStore.getState().combatants.e1!.hp;
-    // base = max(1, 4 + (12-10)/2) = max(1, 5) = 5
-    // QTE off → modifier=0 → 5 * 1 = 5
-    expect(dmg).toBe(5);
+    // v0.5-dev: base = max(1, d6(4) + STR_mod(12→+1) + weapon(4) - defense(0)) = 9
+    // QTE off → modifier=0 → 9 * 1 = 9
+    expect(dmg).toBe(9);
   });
 
   it('QTE 开 + modifier=+1: damage × 1.3 (QTE 命中好)', async () => {
@@ -467,9 +473,8 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
     const hpBefore = useCombatStore.getState().combatants.e1!.hp;
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
     const dmg = hpBefore - useCombatStore.getState().combatants.e1!.hp;
-    // base 5 * (1 + 1*0.3) = 5 * 1.3 = 6.5 → round = 7 (or 6)
-    // Math.round(6.5) = 7 in JS (banker's rounding 不适用, .5 上取整)
-    expect(dmg).toBe(7);
+    // base 9 * (1 + 1*0.3) = 9 * 1.3 = 11.7 → round = 12
+    expect(dmg).toBe(12);
   });
 
   it('QTE 开 + modifier=-1: damage × 0.7 (QTE 失手)', async () => {
@@ -487,11 +492,11 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
     const hpBefore = useCombatStore.getState().combatants.e1!.hp;
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
     const dmg = hpBefore - useCombatStore.getState().combatants.e1!.hp;
-    // base 5 * (1 + -1*0.3) = 5 * 0.7 = 3.5 → round = 4
-    expect(dmg).toBe(4);
+    // base 9 * (1 + -1*0.3) = 9 * 0.7 = 6.3 → round = 6
+    expect(dmg).toBe(6);
   });
 
-  it('QTE 不影响命中判定: 命中投 13 vs 闪避 12, 即便 modifier=-1 仍命中', async () => {
+  it('QTE 不影响命中判定: d20=20 → toHit=22 ≥ 门槛 10, 即便 modifier=-1 仍命中', async () => {
     await callTool('startCombat', makeStartCombatArgs());
     const player = makePlayer({
       equipped: {
@@ -509,10 +514,10 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
     expect(hpBefore - useCombatStore.getState().combatants.e1!.hp).toBeGreaterThan(0);
   });
 
-  it('6 维公式不变: 命中投 = 2d6 + STR_mod + weapon.toHit (QTE 不参与命中)', async () => {
+  it('6 维公式不变: d20 + DEX_mod vs 10 + DEX_mod (QTE 只缩放伤害)', async () => {
     // 玩家 STR=18 → +4 mod, 武器 +6 dmg; 敌人 maxHp=200 (避免 clamp 影响 dmg 计算)
-    // 命中投 6+6+4+3=19 vs 闪避 1+1+10=12 → 命中
-    // base = max(1, 6 + 4) = 10; modifier=+1: dmg1 = round(10 * 1.3) = 13; modifier=-1: dmg2 = round(10 * 0.7) = 7
+    // toHit = d20(20) + DEX_mod(2) = 22 ≥ 门槛 10 → 命中
+    // base = max(1, d6(4) + STR_mod(4) + weapon(6) - defense(0)) = 14
     const customPlayer: Combatant = {
       id: 'p1',
       side: 'player',
@@ -537,7 +542,7 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
 
     const qteStrong: QTEProvider = () => ({ accuracy: 1, modifier: 1, type: 'attack' });
     const qteWeak: QTEProvider = () => ({ accuracy: 0, modifier: -1, type: 'attack' });
-    const rollSeq = [6, 6, 1, 1];
+    const rollSeq = [20, 4];
 
     const r1 = createActionResolver({ roll: makeConstRoll([...rollSeq]), qte: qteStrong });
     const hpBefore1 = useCombatStore.getState().combatants.e1!.hp;
@@ -554,9 +559,9 @@ describe('integration: QTE 开启 + 攻击: 伤害 ±30% (modifier 缩放)', () 
     expect(dmg2).toBeGreaterThan(0);
     // QTE 只缩放伤害, dmg1 > dmg2
     expect(dmg1).toBeGreaterThan(dmg2);
-    // base = 10; dmg1 = round(10 * 1.3) = 13; dmg2 = round(10 * 0.7) = 7
-    expect(dmg1).toBe(13);
-    expect(dmg2).toBe(7);
+    // base = 14; dmg1 = round(14 * 1.3) = 18; dmg2 = round(14 * 0.7) = 10
+    expect(dmg1).toBe(18);
+    expect(dmg2).toBe(10);
   });
 });
 
@@ -574,15 +579,21 @@ describe('integration: QTE 关闭 (默认) + 攻击: damage = base', () => {
       },
     });
     useCombatStore.setState((s) => ({ combatants: { ...s.combatants, p1: player } }));
+    // 把 e1 HP 提升, 避免 applyDamage clamp (HP 12 - 13 → 0) 影响 dmg 观察
+    const e1 = useCombatStore.getState().combatants.e1!;
+    useCombatStore.setState({
+      combatants: { ...useCombatStore.getState().combatants, e1: { ...e1, hp: 200, maxHp: 200 } },
+    });
 
     // 显式传 noopQTEProvider
-    const resolver = createActionResolver({ roll: makeConstRoll([6, 6, 1, 1]), qte: noopQTEProvider });
+    // v0.5-dev: d20=20 (命中), d6=6 (伤害)
+    const resolver = createActionResolver({ roll: makeConstRoll([20, 6]), qte: noopQTEProvider });
     const hpBefore = useCombatStore.getState().combatants.e1!.hp;
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
     const dmg = hpBefore - useCombatStore.getState().combatants.e1!.hp;
-    // base = max(1, 6 + (12-10)/2) = max(1, 7) = 7
-    // modifier=0 → dmg = 7
-    expect(dmg).toBe(7);
+    // base = max(1, d6(6) + STR_mod(12→+1) + weapon(6) - defense(0)) = 13
+    // modifier=0 → dmg = 13
+    expect(dmg).toBe(13);
   });
 
   it('settingsStore qte.enabled=false 时, defaultQTEProvider 走 noop', () => {
@@ -654,11 +665,11 @@ describe('integration: 防御 + 物品 + 技能 协同', () => {
 
   it('end-to-end: 玩家 attack → 敌人 attack → 玩家 defend 三步不出错', async () => {
     _resetSharedResolver();
+    resetClientStores();
     await callTool('startCombat', makeStartCombatArgs());
     const engine = getCombatEngine();
     const resolver = createActionResolver({ roll: makeConstRoll([10, 10, 10, 10]) });
     engine.setResolver(resolver);
-
     // 玩家攻击
     await engine.processTurn({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, 'p1');
     // 敌人攻击

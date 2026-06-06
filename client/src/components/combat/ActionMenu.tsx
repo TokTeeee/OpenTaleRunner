@@ -1,11 +1,11 @@
 /**
- * v0.4 战斗系统 — ActionMenu
+ * v0.5-dev 战斗系统 — ActionMenu
  *
  * 玩家在 ACT 队列轮到时操作 5 类动作:
- * - 攻击 (3 AP)
- * - 技能 (4 AP)
- * - 物品 (2 AP, 走 BackpackModal)
- * - 防御 (2 AP, +AC + 伤害减半)
+ * - 攻击 (2 AP)
+ * - 物品 (0 AP, 走 BackpackModal)
+ * - 防御 (1 AP, +命中门槛)
+ * - 休息 (0 AP, 恢复 1 AP)
  * - 逃跑 (0 AP, 走 FleeAction)
  *
  * 设计:

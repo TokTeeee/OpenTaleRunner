@@ -22,7 +22,7 @@ interface CombatFieldProps {
   selectedTargetId?: string | null;
   /** 点击目标时的回调 */
   onTargetSelect?: (combatantId: string) => void;
-  /** 是否允许点选目标 (ActionMenu 在 attack/skill/item 时打开) */
+  /** 是否允许点选目标 (ActionMenu 在 attack/item 时打开; v0.5-dev skill 已隐藏) */
   targetMode?: boolean;
 }
 

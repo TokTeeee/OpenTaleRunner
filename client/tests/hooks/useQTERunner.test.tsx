@@ -1,11 +1,14 @@
 /**
- * v0.4 战斗系统 — useQTERunner hook 测试
+ * v0.5-dev 战斗系统 — useQTERunner hook 测试
+ *
+ * v0.5-dev 变更:
+ * - 移除 skill 走魔法 QTE 的用例 (skill 已隐藏)
+ * - defend cost 改为 1 AP (与 DEFEND_AP_COST 同步)
  *
  * 覆盖:
  * - QTE 关闭: attack 走 resolve() (modifier=0)
  * - QTE 开启: attack 走 runAttack + resolveWithQTE
- * - skill 走魔法 QTE
- * - defend / flee 不走 QTE
+ * - defend / flee / item / wait 不走 QTE
  * - AP 扣费 + turn 推进
  * - 战斗胜利 -> beginResolving(victory)
  * - 战斗失败 -> beginResolving(defeat)
@@ -130,13 +133,14 @@ describe('useQTERunner: QTE 关闭路径', () => {
     expect(useCombatStore.getState().turn).toBe(2);
   });
 
-  it('QTE disabled + defend -> 走 resolve(), 玩家 AP=5', async () => {
+  it('QTE disabled + defend -> 走 resolve(), 玩家 AP=5 (1 AP cost)', async () => {
     seedCombat();
     useSettingsStore.setState({ qte: { enabled: false, attackMaxRounds: 5, magicBaseMs: 5000, damageScale: 0.3 } });
     render(<HookHarness />);
     await act(async () => {
-      await exposedExecute!({ kind: 'defend', userId: 'p-1', cost: { ap: 2 } });
+      await exposedExecute!({ kind: 'defend', userId: 'p-1', cost: { ap: 1 } });
     });
+    // v0.5-dev: defend cost = 1 AP, 6 - 1 = 5
     expect(useCombatStore.getState().combatants['p-1'].ap).toBe(5);
     // turn 推进
     expect(useCombatStore.getState().turn).toBe(2);
@@ -169,25 +173,6 @@ describe('useQTERunner: QTE 开启路径', () => {
     });
     // 玩家 AP 扣 2
     expect(useCombatStore.getState().combatants['p-1'].ap).toBe(4);
-  });
-
-  it('QTE enabled + skill -> 调 runMagic', async () => {
-    seedCombat();
-    useSettingsStore.setState({ qte: { enabled: true, attackMaxRounds: 5, magicBaseMs: 5000, damageScale: 0.3 } });
-    render(<HookHarness />);
-    const mockResult: QTEResult = { accuracy: 0.5, modifier: 0, type: 'magic' };
-    const runMagic = vi.fn(() => Promise.resolve(mockResult));
-    useQTEStore.setState({ runMagic });
-    await act(async () => {
-      await exposedExecute!({
-        kind: 'skill',
-        userId: 'p-1',
-        skillId: 'fireball',
-        targetId: 'e-1',
-        cost: { ap: 1, mp: 0 },
-      });
-    });
-    expect(runMagic).toHaveBeenCalledTimes(1);
   });
 });
 

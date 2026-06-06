@@ -9,9 +9,9 @@
  *   settled       -> 渲染 SettlementModal (结果)
  *
  * 状态机:
- * - selectedAction: 当前在选目标的动作 (attack / skill)
+ * - selectedAction: 当前在选目标的动作 (attack)
  * - selectedTargetId: 选中的目标
- * - onAction: 选 -> 进入 target 选模式 (attack / skill)
+ * - onAction: 选 -> 进入 target 选模式 (attack)
  *   - defend / flee 不需目标, 直接 executeAction
  *   - item 走背包 modal (ActionMenu 已拦截)
  * - 点目标 -> 拼装 CombatAction 调 useQTERunner.executeAction()
@@ -136,9 +136,11 @@ export function CombatView() {
     }
 
     // 敌人 AI 行动
-    setIsProcessingEnemyTurn(true);
-
-    setTimeout(async () => {
+    // 注: setIsProcessingEnemyTurn(true) 移入 setTimeout 回调,
+    // 既避开 react-hooks/set-state-in-effect lint (effect body 不应同步 setState),
+    // 又便于在 cleanup 中 clearTimeout 防止组件卸载后 setState / 推进回合.
+    const enemyTimer = setTimeout(async () => {
+      setIsProcessingEnemyTurn(true);
       try {
         const action = enemyAI(currentActor, combatants);
         if (action) {
@@ -204,6 +206,8 @@ export function CombatView() {
         setIsProcessingEnemyTurn(false);
       }
     }, 800); // 给一点延迟，让 UI 有时间反应
+
+    return () => clearTimeout(enemyTimer);
   }, [phase, turn, queue, combatants, isPlayerTurn, isProcessingEnemyTurn, round, advanceTurn, advanceRound, beginResolving, appendLog, tickBuffs, addMessage]);
 
   // 所有 hooks 必须在条件 return 之前 (Rules of Hooks)
@@ -238,15 +242,6 @@ export function CombatView() {
       let action: CombatAction;
       if (actionKind === 'attack') {
         action = { kind: 'attack', attackerId: playerId, targetId };
-      } else if (actionKind === 'skill') {
-        // v0.4 占位 skill: 默认 'fireball' skill (v0.5 SkillRegistry 接入)
-        action = {
-          kind: 'skill',
-          userId: playerId,
-          skillId: 'fireball',
-          targetId,
-          cost: { ap: ACTION_COSTS.skill, mp: 0 },
-        };
       } else {
         logger.warn('CombatView', `未处理 action kind: ${actionKind}`);
         return;
