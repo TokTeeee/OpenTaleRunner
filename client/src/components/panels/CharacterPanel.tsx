@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../types/character';
 import type { Attributes, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
+import { ClassSkillTreeView } from './CharacterPanel/ClassSkillTreeView';
 
 const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤️', INT: '🧠', WIS: '👁', CHA: '👑' };
 
@@ -102,6 +103,9 @@ export function CharacterPanel() {
           ))}
         </div>
       </div>
+
+      {/* v0.5.2 — Class Skill Tree (only when classId is set) */}
+      <ClassSkillTreeView />
 
       {/* Skills */}
       {character.skills.length > 0 && (
