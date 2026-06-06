@@ -37,6 +37,8 @@ import { useQTERunner } from '../../hooks/useQTERunner';
 import { logger } from '../../utils/logger';
 import { ACTION_COSTS } from './combatActions';
 import { getSharedResolver } from '../../services/combat/ActionResolver';
+import { eventBus } from '../../services/event/EventBus';
+import { EVENTS } from '../../services/event/events';
 import type { CombatAction, CombatOutcome, BalanceRating, Combatant } from '../../services/combat/types';
 
 type SelectedAction = ActionKind | null;
@@ -185,8 +187,10 @@ export function CombatView() {
               timestamp: Date.now(),
             });
           } else if (allPlayersDead) {
+            eventBus.emit(EVENTS.COMBAT_END, { outcome: 'defeat' });
             beginResolving('defeat');
           } else if (hasFledUnit) {
+            eventBus.emit(EVENTS.COMBAT_END, { outcome: 'fled' });
             beginResolving('fled');
             addMessage({
               id: `combat-end-${Date.now()}`,

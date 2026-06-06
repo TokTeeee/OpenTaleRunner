@@ -273,6 +273,8 @@ export function useActionSubmit(deps: ActionSubmitDeps) {
       clientLogger.debug(LogCategory.GM, 'RES', `narrativeLen=${narrative.narrative?.length || 0} choices=${narrative.choices?.length || 0}`, { npcsIntroduced: narrative.npcsIntroduced?.length, hasConsequences: !!narrative.consequences?.hpChange || !!narrative.consequences?.itemsGained?.length });
       logger.info('PM', `combinedAdvance done — narrative len:${narrative.narrative?.length || 0} choices:${narrative.choices?.length || 0} toolCalls:${narrative.toolCalls?.length || 0}`);
       eventBus.emit(EVENTS.NARRATIVE_RECEIVED, narrative);
+      // v0.5.1: 广播 narrative.submit (PM 处理完后) 给 EXP 授权 hook
+      eventBus.emit(EVENTS.NARRATIVE_SUBMIT, { characterId: charData.characterId, action });
 
       // v0.4 战斗系统: dispatch LLM 给的 toolcalls (e.g. startCombat / endCombat)
       // 串行执行; 不阻断 PM 流程 (handler 自身保证不抛错)

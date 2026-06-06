@@ -194,10 +194,28 @@ export const useCharacterStore = create<CharacterState>((set) => ({
   applyServerExpGrant: (patch) =>
     set((s) => {
       if (!s.character) return s;
+      const oldLevel = s.character.level ?? 1;
+      const newLevel = patch.level;
+      // v0.5.1: 升级时广播 LEVEL_UP (延迟到 next tick, 避免 setState 期间 emit)
+      if (newLevel > oldLevel) {
+        queueMicrotask(() => {
+          try {
+            // dynamic import to avoid circular dep — but EventBus is already singleton
+            // and eventBus is referenced lazily so SSR-safe
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { eventBus } = require('../services/event/EventBus');
+            const { EVENTS } = require('../services/event/events');
+            eventBus.emit(EVENTS.LEVEL_UP, {
+              characterId: s.character!.characterId,
+              oldLevel, newLevel,
+            });
+          } catch { /* best-effort */ }
+        });
+      }
       return {
         character: {
           ...s.character,
-          level: patch.level,
+          level: newLevel,
           exp: patch.exp,
           expToNext: patch.expToNext,
           unspentAttributePoints: patch.unspentAttributePoints,

@@ -46,6 +46,8 @@ import {
 } from './types';
 import { routeItem, NeedsGMFallbackError } from './ItemCallbackRouter';
 import type { Item } from '../../types/item';
+import { eventBus } from '../event/EventBus';
+import { EVENTS } from '../event/events';
 
 // ============================================================
 // 错误
@@ -415,7 +417,14 @@ export class ActionResolver {
 
     // 命中 → 算伤害 (含 QTE 缩放, 含 target.defense 减成)
     const damage = rollDamage(attacker, target, qteRes.modifier, this.damageScale, ctx.roll);
+    const targetHpBefore = target.hp;
     useCombatStore.getState().applyDamage(target.id, damage.total);
+    // v0.5.1: 广播 combat.hit 给 EXP 授权 hook
+    eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: damage.total, isCrit: qteRes.modifier > 0 });
+    if (targetHpBefore - damage.total <= 0) {
+      // v0.5.1: 击杀广播
+      eventBus.emit(EVENTS.COMBAT_KILL, { killerId: attacker.id, targetId: target.id, targetName: target.name });
+    }
     log.push({
       kind: 'action',
       round: state.round,
