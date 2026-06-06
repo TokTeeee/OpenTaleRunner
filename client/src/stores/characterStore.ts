@@ -51,6 +51,10 @@ interface CharacterState {
   updateIdentity: (changes: { name?: string; appearance?: string; background?: string }) => void;
   /** 应用/反应用 物品的 attribute_mod 词条, true=装备, false=卸下 */
   applyItemEffects: (item: Item, apply: boolean) => void;
+  /** v0.5.1 — 用服务端返回值应用 EXP 授权 (Pydantic 返回 { level, exp, expToNext, unspentAttributePoints }) */
+  applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number }) => void;
+  /** v0.5.1 — 用服务端返回值应用属性消费 (Pydantic 返回 { attributes, unspentAttributePoints }) */
+  applyServerAttributeSpend: (patch: { attributes: Attributes; unspentAttributePoints: number }) => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
@@ -61,11 +65,11 @@ export const useCharacterStore = create<CharacterState>((set) => ({
   updateAttributes: (attrs) =>
     set((s) => {
       if (!s.character) return s;
-      // 审计 P5 修复: 加 [3, 18] 钳制, 与 D&D 5e PHB 规则一致
+      // v0.5.1: 钳制从 [3, 18] 放宽到 [1, 20] (v0.5+ 可用 spent points 把任一属性点满 20)
       const next: Record<string, number> = {};
       for (const [k, v] of Object.entries(attrs)) {
         if (v == null) continue;
-        next[k] = Math.max(3, Math.min(18, v));
+        next[k] = Math.max(1, Math.min(20, v));
       }
       return { character: { ...s.character, attributes: { ...s.character.attributes, ...next } } };
     }),
@@ -182,4 +186,34 @@ export const useCharacterStore = create<CharacterState>((set) => ({
       return { character: { ...s.character, attributes: attrs } };
     });
   },
+
+  // -------------------------------------------------------------------------
+  // v0.5.1 — Level-EXP patch application (server is authoritative)
+  // -------------------------------------------------------------------------
+
+  applyServerExpGrant: (patch) =>
+    set((s) => {
+      if (!s.character) return s;
+      return {
+        character: {
+          ...s.character,
+          level: patch.level,
+          exp: patch.exp,
+          expToNext: patch.expToNext,
+          unspentAttributePoints: patch.unspentAttributePoints,
+        },
+      };
+    }),
+
+  applyServerAttributeSpend: (patch) =>
+    set((s) => {
+      if (!s.character) return s;
+      return {
+        character: {
+          ...s.character,
+          attributes: patch.attributes,
+          unspentAttributePoints: patch.unspentAttributePoints,
+        },
+      };
+    }),
 }));

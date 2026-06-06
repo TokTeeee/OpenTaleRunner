@@ -23,23 +23,23 @@ function makeChar(): Character {
   };
 }
 
-describe('characterStore — 审计 P5 修复: updateAttributes 钳制 + charisma 路由', () => {
+describe('characterStore — v0.5.1 updateAttributes 钳制 [1, 20] + charisma 路由', () => {
   beforeEach(() => {
     resetClientStores();
     useCharacterStore.setState({ character: makeChar(), isLoaded: true });
   });
 
-  describe('updateAttributes [3, 18] 钳制', () => {
-    it('超过 18 时钳制为 18', () => {
+  describe('updateAttributes [1, 20] 钳制 (v0.5.1 放宽)', () => {
+    it('超过 20 时钳制为 20', () => {
       useCharacterStore.getState().updateAttributes({ STR: 25 });
       const attrs = useCharacterStore.getState().character!.attributes;
-      expect(attrs.STR).toBe(18);
+      expect(attrs.STR).toBe(20);
     });
 
-    it('低于 3 时钳制为 3', () => {
+    it('低于 1 时钳制为 1', () => {
       useCharacterStore.getState().updateAttributes({ DEX: 0 });
       const attrs = useCharacterStore.getState().character!.attributes;
-      expect(attrs.DEX).toBe(3);
+      expect(attrs.DEX).toBe(1);
     });
 
     it('null/undefined 值不更新字段', () => {
