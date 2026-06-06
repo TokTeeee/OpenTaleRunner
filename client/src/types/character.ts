@@ -60,6 +60,20 @@ export interface Character {
   gameClock?: number;
   timeOfDay?: string;
   recentHistory: HistoryEntry[];
+  // v0.5.1 Level-EXP fields
+  level: number;                       // [1, 20]
+  exp: number;                         // current EXP towards next level
+  expToNext: number;                   // server-emitted
+  unspentAttributePoints: number;      // 0-20 free allocation pool
+  // v0.5.2 Class fields (default null/[] in v0.5.1, used from v0.5.2)
+  classId: string | null;
+  classSkills: ClassSkillNode[];
+}
+
+export interface ClassSkillNode {
+  classId: string;
+  nodeId: string;
+  unlockedAt: number;
 }
 
 export interface HistoryEntry {
