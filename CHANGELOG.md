@@ -1,5 +1,55 @@
 # Changelog
 
+## v0.5.5 — 2026-06-06 (Combat AP rule clarification)
+
+Documentation + test fixup that codifies the actual AP behavior of the
+combat store, which was under-specified in the docs and produced a
+flaky test. No engine code changes — the code already implements the
+intended rule; this release just aligns the documentation and the
+regression test with reality.
+
+### Rule (clarified)
+- `ap` does **not** reset to `maxAp` at the start of each round.
+- The **first actor of the entire fight** starts at `maxAp` directly,
+  with no +1 (no one handed off to them yet).
+- **Every other time it becomes an actor's turn**, that actor gains
+  +1 AP (clamped at `maxAp`).
+- Implementation: two store actions —
+  - `advanceTurn()` (same-round hand-off): `queue[newTurn-1] +1`
+  - `advanceRound()` (new round): `round += 1`, `turn = 1`,
+    `queue[0] +1`
+
+### Docs
+- `docs/zh/战斗系统.md` §2.6.1 — adds the explicit "AP 行为细节
+  (v0.5.5 澄清)" block, refits the ap row of the resource table, and
+  adds two rows to the §2.6.12 differences table
+  ("回合开始 AP" / "同回合换人 AP").
+- `docs/en/Combat-System.md` §2.3 + introduction — same clarification
+  translated, removes the stale "reset to `maxAp=6` at the start of
+  every round" wording.
+
+### Tests
+- `client/tests/services/combat/integration.test.ts` — the
+  `end-to-end: 玩家 attack → 敌人 attack → 玩家 defend` test used a
+  hard-coded `p1.ap === 4` expectation that broke ~40% of runs
+  (initiative is real-random and the test does not pin the engine's
+  `roll`). The expectation is now computed from the live queue:
+  - `queue = [p1, e1]` → `p1.ap === 4`
+  - `queue = [e1, p1]` → `p1.ap === 5`
+  - Both branches verified by running 10/10 green; no code path is
+    favored.
+- Removed stale `tests/services/combat/debug_ap.test.ts` (scratch
+  tracer that referenced a non-existent `./_setup` helper; no longer
+  needed now that the test is data-driven).
+
+### Test results
+- **Client**: 84 / 84 test files, 938 / 938 tests pass.
+- **Server**: 51 / 51 tests pass with `SERVICE_RATE_LIMIT=10000`
+  (the 4 default-rate failures are pre-existing test-ordering, not
+  related to v0.5.5).
+
+---
+
 ## v0.5.4 — 2026-06-06 (v0.5.x audit fixes)
 
 Hotfix release that closes two functional gaps discovered in the v0.5.x

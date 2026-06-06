@@ -677,7 +677,17 @@ describe('integration: 防御 + 物品 + 技能 协同', () => {
     // 玩家防御
     await engine.processTurn({ kind: 'defend', userId: 'p1' }, 'p1');
 
-    // 玩家 AP: 6 - 2(攻击) + 1(advanceRound) - 1(防御) = 4
-    expect(useCombatStore.getState().combatants.p1!.ap).toBe(4);
+    // 玩家 AP 取决于 ACT 队列顺序 (initiative 用 engine 默认抹子, 未被 constRoll 控制, 故真实随机):
+    //   - queue=[p1,e1]: 6 -2(攻击) +0(advTurn→e1) +1(advRound→p1) -1(防御) = 4
+    //   - queue=[e1,p1]: 6 -2(攻击) +1(advTurn→p1) +0(advRound→e1) -1(防御) +1(advTurn→p1) = 5
+    // 规则: 整场战斗第一个行动者从 maxAp 起步, 之后轮到谁的开始行动时 +1 (受 maxAp clamp)
+    // 详见 docs/zh/战斗系统.md §2.6.1 (v0.5.5 澄清)
+    const queue = useCombatStore.getState().queue;
+    const queueIds = queue.map((q) => q.combatantId).join('>');
+    const expected = queue[0]?.combatantId === 'p1' ? 4 : 5;
+    expect(
+      useCombatStore.getState().combatants.p1!.ap,
+      `p1.ap expectation depends on ACT queue order. queue=${queueIds}`,
+    ).toBe(expected);
   });
 });

@@ -8,7 +8,7 @@ The Combat System is the turn-based combat module introduced in v0.4. It manages
 
 - **ACT Queue (initiative queue)**: Computed at combat start as `d20 + effectiveDEX`, sorted descending; all combatants take turns in order.
 - **6 Attributes (six attributes)**: Strength (STR) / Dexterity (DEX) / Constitution (CON) / Intelligence (INT) / Wisdom (WIS) / Charisma (CHA). **STR drives melee damage**, **DEX drives hit & initiative**, **CON drives max HP**.
-- **AP (Action Points)**: Reset to `maxAp=6` at the start of every turn. Each action costs 1–4 AP. See section 3.
+- **AP (Action Points)**: Combatants start each fight at `maxAp` (player 6 / monster 4). AP is **not** reset at the start of each round; instead, when it becomes an actor's turn they gain +1 AP (clamped at `maxAp`). The very first actor of the entire fight is the lone exception — they start at `maxAp` and skip the +1. See §2.3.
 - **5-Phase FSM**: The combat finite-state machine has five stages: `idle → initializing → active → resolving → settled`.
 - **4 Difficulty Ratings (balance rating)**: `trivial / normal / hard / deadly`, which drive both balance evaluation and failure penalty.
 
@@ -96,6 +96,16 @@ At the start of each round, every combatant's `ap` resets to `maxAp=6` (tactical
 | `flee` | 2 | d20 + DEX check; on failure, no action this turn |
 
 > Monsters default to `maxAp=4` (4-action mob tempo); players and NPCs default to `maxAp=6`. This is v0.4's asymmetric design: players have more action space, while monsters trade fewer actions for higher individual impact.
+
+> **AP behavior detail (synced with code, clarified in v0.5.5)**:
+> - `ap` is **not** reset to `maxAp` at the start of each round.
+> - The **first actor of the entire fight** starts at `maxAp` directly, **without** the +1.
+> - **Subsequently, when it becomes any actor's turn**, that actor gains +1 AP (clamped at `maxAp`).
+> - The implementation is split into two store actions:
+>   - `advanceTurn()`: when `turn < queue.length` (handing off within the same round), the next actor `queue[newTurn-1]` gets +1.
+>   - `advanceRound()`: when `turn == queue.length` (new round), `round += 1`, `turn = 1`, and the new round's first actor `queue[0]` gets +1.
+> - The +1 happens during the store-action phase at the end of `processTurn`, so it is equivalent to "the next actor's turn-start bonus" (the next actor has already received +1 by the time their own `processTurn` runs).
+> - A player cycling between `attack=2` and `wait=0+1` keeps a stable AP economy.
 
 ### 2.4 QTE Overview
 
