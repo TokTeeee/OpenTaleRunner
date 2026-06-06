@@ -4,6 +4,25 @@ from abc import ABC, abstractmethod
 from db.database import Database
 
 
+# v0.5.1 幂等迁移: 给 v0.4 存档补 level/exp/expToNext/unspentAttributePoints/classId/classSkills,
+# 并把属性钳制从 [3, 18] 放宽为 [1, 20]. 每次 create/update 都跑一次, 已带这些字段的存档原样通过.
+def _migrate_v04_to_v05(data: dict) -> dict:
+    data.setdefault("level", 1)
+    data.setdefault("exp", 0)
+    data.setdefault("expToNext", 100)
+    data.setdefault("unspentAttributePoints", 0)
+    data.setdefault("classId", None)
+    data.setdefault("classSkills", [])
+    attrs = data.get("attributes", {})
+    for k in ("STR", "DEX", "CON", "INT", "WIS", "CHA"):
+        if k in attrs:
+            try:
+                attrs[k] = max(1, min(20, int(attrs[k])))
+            except (TypeError, ValueError):
+                attrs[k] = 10
+    return data
+
+
 class ICharacterRepo(ABC):
     @abstractmethod
     async def create(self, player_id: str, data: dict) -> str: ...
@@ -21,6 +40,7 @@ class SqliteCharacterRepo(ICharacterRepo):
     def __init__(self, db: Database): self.db = db
 
     async def create(self, player_id: str, data: dict) -> str:
+        data = _migrate_v04_to_v05(data)
         cid = data.get("characterId") or str(uuid.uuid4())
         region = data.get("joinedRegion", data.get("region", ""))
         wd = data.get("joinedWorldDay", data.get("world_day", 1))
