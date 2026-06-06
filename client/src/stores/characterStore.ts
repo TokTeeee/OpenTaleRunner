@@ -4,7 +4,7 @@
  * 它描述的是“当前操控角色”，而不是角色列表或世界中的其它实体。
  */
 import { create } from 'zustand';
-import type { Character, Attributes, Skill, Inventory, VitalStats, Reputation, HistoryEntry, Currency } from '../types/character';
+import type { Character, Attributes, Skill, Inventory, VitalStats, Reputation, HistoryEntry, Currency, ClassSkillNode } from '../types/character';
 import type { Item } from '../types/item';
 import { systemHooks } from '../services/hooks/SystemHooks';
 import type { GameSnapshot } from '../types/hooks';
@@ -55,6 +55,8 @@ interface CharacterState {
   applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number }) => void;
   /** v0.5.1 — 用服务端返回值应用属性消费 (Pydantic 返回 { attributes, unspentAttributePoints }) */
   applyServerAttributeSpend: (patch: { attributes: Attributes; unspentAttributePoints: number }) => void;
+  /** v0.5.3 — 设置角色职业与已解锁技能 (本地 + 调用方负责 PATCH /class 同步服务端) */
+  setClass: (classId: string | null, classSkills: ClassSkillNode[]) => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
@@ -231,6 +233,22 @@ export const useCharacterStore = create<CharacterState>((set) => ({
           ...s.character,
           attributes: patch.attributes,
           unspentAttributePoints: patch.unspentAttributePoints,
+        },
+      };
+    }),
+
+  // -------------------------------------------------------------------------
+  // v0.5.3 — Class registration
+  // -------------------------------------------------------------------------
+
+  setClass: (classId, classSkills) =>
+    set((s) => {
+      if (!s.character) return s;
+      return {
+        character: {
+          ...s.character,
+          classId,
+          classSkills,
         },
       };
     }),
