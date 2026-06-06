@@ -37,6 +37,7 @@ import { WorldSyncNotifications } from './components/shared/WorldSyncNotificatio
 import { ToastContainer } from './components/common/ToastContainer';
 import { useCodexInit } from './hooks/useCodexInit';
 import { CombatView } from './components/combat/CombatView';
+import { TierUnlockModal } from './components/modals/TierUnlockModal';
 import { useUIStore } from './stores/uiStore';
 import { useNPCStore } from './stores/npcStore';
 import { useMultiplayerStore } from './stores/multiplayerStore';
@@ -744,6 +745,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <CombatView />
+      <TierUnlockModal />
       <AppLayout
         onAutoPlayStart={startAutoPlay}
         onAutoPlayPause={pauseAutoPlay}
