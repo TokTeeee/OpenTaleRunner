@@ -42,6 +42,20 @@ export interface CharacterSnapshot {
   currentLocalDay: number;
   recentHistory: Array<{ worldDay: number; region: string; summary: string }>;
   npcRelationships: NPCRelationshipSnapshot[];
+  // v0.5.1 Level-EXP (with safe defaults for v0.4 cards on import)
+  level?: number;
+  exp?: number;
+  expToNext?: number;
+  unspentAttributePoints?: number;
+  // v0.5.2 Class (with safe defaults for v0.4-v0.5.1 cards on import)
+  classId?: string | null;
+  classSkills?: ClassSkillNodeSnapshot[];
+}
+
+export interface ClassSkillNodeSnapshot {
+  classId: string;
+  nodeId: string;
+  unlockedAt: number;
 }
 
 export interface SkillSnapshot {

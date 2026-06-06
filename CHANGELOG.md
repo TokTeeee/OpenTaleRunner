@@ -1,5 +1,106 @@
 # Changelog
 
+## v0.5.6 — 2026-06-06 (v0.5 hotfix-debt cleanup)
+
+Cleared the residual `lint` / `typecheck` debt that v0.5.1–v0.5.4 left
+behind, and synced the CharacterCard import/export schema with the v0.5
+character data model. No engine / combat code changes; no public API
+changes for end users.
+
+### Why this release exists
+
+The v0.5 hotfix chain focused on functional gaps (EXP trigger chain,
+GuildClassModal mount, expToNext edge case, wizard unlock day). The
+cleanup leaves were:
+
+- 4 `typecheck` errors (Character type missing v0.5 fields in
+  `App.tsx` and `CharacterCardImporter.ts`; dynamic `require()` in
+  `characterStore.ts`)
+- 7 `lint` errors (setState in effect, unused component, empty
+  interface, `let` that should be `const`, unused imports)
+- 1 dormant dead code path (`AttributeRow` in `CharacterPanel.tsx`,
+  was defined but never rendered anywhere)
+
+Now: `npm run typecheck` and `npm run lint` both exit 0 across the
+whole tree. This is the prerequisite to the longer-term plan of
+moving `lint` from advisory to `required` in CI.
+
+### Changes by file
+
+- `client/src/App.tsx`
+  - `demoChar` (the quick-start fallback in `App.tsx`) now carries
+    `level/exp/expToNext/unspentAttributePoints/classId/classSkills`
+    so its `Character` typechecks against the v0.5 model.
+  - The "reset `guildClassDismissed` on `charId` change" useEffect
+    keeps the pattern but is explicitly marked with an inline
+    `eslint-disable-next-line react-hooks/set-state-in-effect` plus
+    a comment explaining why this pattern is correct (per-character
+    local UI state, no external system to subscribe to).
+- `client/src/services/character/CharacterCardImporter.ts`
+  - The imported `Character` is now fully populated for v0.5 fields.
+    Old v0.4 / v0.5.1 cards that lack the new fields fall back to
+    safe defaults (`level=1, exp=0, expToNext=100,
+    unspentAttributePoints=0, classId=null, classSkills=[]`).
+- `client/src/services/character/CharacterCardExporter.ts`
+  - `formatVersion` bumped `1 → 2` to advertise the v0.5 schema.
+  - Exports the six new fields. Read back via
+    `CharacterCardImporter`, round-trip is identity.
+- `client/src/types/characterCard.ts`
+  - `CharacterSnapshot` extended with optional v0.5 fields, plus a
+    new `ClassSkillNodeSnapshot` shape. Optional on purpose so
+    existing v0.4 cards still parse.
+- `client/src/stores/characterStore.ts`
+  - The `LEVEL_UP` event emit was using `require()` for what was
+    already two top-level static imports. Replaced with proper
+    static `import { eventBus } from '../services/event/EventBus'`
+    and `import { EVENTS } from '../services/event/events'`. No
+    semantic change; the lazy-load rationale in the original
+    comment was a leftover (EventBus is a singleton, no circular
+    dep).
+- `client/src/components/panels/CharacterPanel.tsx`
+  - Removed the dead `AttributeRow` helper (was defined, never
+    rendered, never tested). Its sibling `LevelBar` is the only
+    in-panel v0.5 surface and is what actually drives the new
+    "level / EXP / unspent points" header.
+  - The two imports that `AttributeRow` was the sole consumer of
+    (`useAuthStore`, `useSettingsStore`) are now gone too.
+- `client/src/services/level/grantExp.ts`
+  - `interface ExpGrantResult extends ExpGrantInput {}` →
+    `type ExpGrantResult = ExpGrantInput` (no longer an empty
+    interface declaration, lint happy).
+  - `let { level, exp, unspentAttributePoints } = state;` is now
+    `const { exp, unspentAttributePoints } = state; let level =
+    state.level;` — only `level` is actually mutated inside the
+    level-up loop, so the other two can be `const`. Behaviour
+    identical (verified by `grantExp.test.ts`, 10/10 still green).
+- `client/tests/components/CharacterPanel_v051.test.tsx`
+  - Dropped the unused `screen` import.
+
+### Test results
+
+- **Client**: `npm run typecheck` exit 0, `npm run lint` exit 0,
+  `npm run test:run` → 84 / 84 files, 938 / 938 tests pass.
+- **Server**: not touched; 51 / 51 still pass (the 4 transient
+  rate-limit failures observed in the v0.5.5 release notes are
+  environmental test-ordering, not v0.5.6 regression).
+
+### Followups not in this release (parking lot)
+
+- v0.5 end-to-end test covering the full chain
+  `combat → EXP grant → PATCH /characters/{id}/exp → level up →
+  TierUnlockModal open → user picks a node → server PATCH` — no
+  e2e exists yet, only unit/component slices. Worth a small spec
+  + plan before coding.
+- `characterStore.applyServerAttributeSpend` is now an orphan
+  action (its only UI consumer, the deleted `AttributeRow`, is
+  gone). Kept for now because re-introducing an attribute-spend
+  UI is a likely v0.5.7+ feature; will be removed if a v0.6 spec
+  says "spend is server-driven only".
+- Server-side EXP rate limiting (the 60 req/60s ceiling) is not
+  covered by any test. Pre-existing gap, not v0.5.6.
+
+---
+
 ## v0.5.5 — 2026-06-06 (Combat AP rule clarification)
 
 Documentation + test fixup that codifies the actual AP behavior of the

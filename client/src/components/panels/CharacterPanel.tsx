@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { useCharacterStore } from '../../stores/characterStore';
-import { useAuthStore } from '../../stores/authStore';
-import { useSettingsStore } from '../../stores/settingsStore';
 import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../types/character';
 import type { Attributes, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
@@ -344,7 +342,7 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
 }
 
 // ---------------------------------------------------------------------------
-// v0.5.1 — LevelBar & AttributeRow
+// v0.5.1 — LevelBar
 // ---------------------------------------------------------------------------
 
 import type { Character } from '../../types/character';
@@ -376,65 +374,6 @@ function LevelBar({ character }: { character: Character }) {
         <div className="mt-1 text-[10px] text-cyan-300/80">
           ✨ {unspentPoints} 个属性点待分配 — 点击下方 +1 按钮
         </div>
-      )}
-    </div>
-  );
-}
-
-function AttributeRow({
-  attrKey,
-  value,
-  characterId,
-  unspentPoints,
-}: {
-  attrKey: string;
-  value: number;
-  characterId: string;
-  unspentPoints: number;
-}) {
-  const applyServerAttributeSpend = useCharacterStore((s) => s.applyServerAttributeSpend);
-  const baseUrl = useSettingsStore((s) => s.server?.endpoint || 'http://localhost:8000');
-  const [pending, setPending] = useState(false);
-
-  const canSpend = unspentPoints > 0 && !pending && value < 20;
-
-  async function spend() {
-    if (!canSpend) return;
-    setPending(true);
-    try {
-      const token = useAuthStore.getState().token || '';
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch(
-        `${baseUrl}/api/v1/characters/${characterId}/attributes/spend`,
-        { method: 'PATCH', headers, body: JSON.stringify({ attribute: attrKey }) },
-      );
-      if (res.ok) {
-        const body = await res.json();
-        applyServerAttributeSpend({ attributes: body.attributes, unspentAttributePoints: body.unspentAttributePoints });
-      }
-    } catch {
-      /* network error: silent retry on next click */
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] w-4 text-center">{ATTR_ICONS[attrKey] || '●'}</span>
-      <span className="text-[10px] text-gray-400 w-8">{ATTRIBUTE_LABELS[attrKey as keyof typeof ATTRIBUTE_LABELS]}</span>
-      <span className="text-[10px] text-gray-300 font-mono ml-auto">{value}</span>
-      {canSpend && (
-        <button
-          type="button"
-          aria-label={`+1 ${attrKey}`}
-          onClick={spend}
-          className="text-[9px] px-1 rounded bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition-colors"
-          data-testid={`attr-spend-${attrKey}`}
-        >
-          +1
-        </button>
       )}
     </div>
   );

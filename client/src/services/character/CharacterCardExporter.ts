@@ -60,10 +60,18 @@ export function exportCharacterCard(
       firstMet: n.relationship.firstMet || '',
       lastInteraction: n.relationship.firstMet || '',
     })),
+    // v0.5.1 Level-EXP
+    level: char.level,
+    exp: char.exp,
+    expToNext: char.expToNext,
+    unspentAttributePoints: char.unspentAttributePoints,
+    // v0.5.2 Class
+    classId: char.classId,
+    classSkills: char.classSkills.map(n => ({ classId: n.classId, nodeId: n.nodeId, unlockedAt: n.unlockedAt })),
   };
 
   return {
-    formatVersion: 1,
+    formatVersion: 2,  // v0.5.6: bumped from 1 for the v0.5 level/class fields
     metadata: {
       exportedAt: new Date().toISOString(),
       exportedFrom: 'opentale-runner-client',

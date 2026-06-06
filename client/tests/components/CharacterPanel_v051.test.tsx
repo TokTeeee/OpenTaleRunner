@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { CharacterPanel } from '../../src/components/panels/CharacterPanel';
 import { useCharacterStore } from '../../src/stores/characterStore';
 import { resetClientStores } from '../utils/resetStores';

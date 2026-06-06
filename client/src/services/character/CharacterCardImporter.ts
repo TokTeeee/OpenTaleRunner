@@ -125,6 +125,14 @@ export function importCharacterCard(card: CharacterCard): ImportResult {
     joinedWorldDay: snap.joinedWorldDay || 1,
     currentLocalDay: snap.currentLocalDay || 1,
     lastActionTime: new Date().toISOString(),
+    // v0.5.1: Level-EXP 基础字段 (旧存档迁移默认)
+    level: snap.level ?? 1,
+    exp: snap.exp ?? 0,
+    expToNext: snap.expToNext ?? 100,
+    unspentAttributePoints: snap.unspentAttributePoints ?? 0,
+    // v0.5.2: 职业系统
+    classId: snap.classId ?? null,
+    classSkills: snap.classSkills ?? [],
     recentHistory: (snap.recentHistory || []).map(h => ({
       worldDay: h.worldDay,
       region: h.region,

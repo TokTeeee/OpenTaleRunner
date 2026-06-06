@@ -8,6 +8,8 @@ import type { Character, Attributes, Skill, Inventory, VitalStats, Reputation, H
 import type { Item } from '../types/item';
 import { systemHooks } from '../services/hooks/SystemHooks';
 import type { GameSnapshot } from '../types/hooks';
+import { eventBus } from '../services/event/EventBus';
+import { EVENTS } from '../services/event/events';
 
 function buildHookSnapshot(character: Character): GameSnapshot {
   return {
@@ -202,11 +204,7 @@ export const useCharacterStore = create<CharacterState>((set) => ({
       if (newLevel > oldLevel) {
         queueMicrotask(() => {
           try {
-            // dynamic import to avoid circular dep — but EventBus is already singleton
-            // and eventBus is referenced lazily so SSR-safe
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { eventBus } = require('../services/event/EventBus');
-            const { EVENTS } = require('../services/event/events');
+            // v0.5.6: 改用静态 import (原 require() 被 lint 禁, 且 eventBus 已是 singleton 无循环依赖)
             eventBus.emit(EVENTS.LEVEL_UP, {
               characterId: s.character!.characterId,
               oldLevel, newLevel,

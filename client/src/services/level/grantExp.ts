@@ -13,7 +13,7 @@ export interface ExpGrantInput {
   unspentAttributePoints: number;
 }
 
-export interface ExpGrantResult extends ExpGrantInput {}
+export type ExpGrantResult = ExpGrantInput;
 
 const DIFFICULTY_MULT: Record<Difficulty, number> = {
   easy: 0.5,
@@ -29,7 +29,8 @@ export function grantExp(
 ): ExpGrantResult {
   const mult = DIFFICULTY_MULT[difficulty] ?? 1.0;
   const final = Math.floor(amount * mult);
-  let { level, exp, unspentAttributePoints } = state;
+  const { exp, unspentAttributePoints } = state;
+  let level = state.level;
   if (level >= MAX_LEVEL || final <= 0) {
     return { level, exp, unspentAttributePoints };
   }

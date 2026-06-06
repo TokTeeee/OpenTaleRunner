@@ -277,7 +277,8 @@ export default function App() {
   const charId = useCharacterStore((s) => s.character?.characterId);
   const classId = useCharacterStore((s) => s.character?.classId);
   useEffect(() => {
-    // 切换角色时重置 dismissed
+    // 切换角色时重置 dismissed (GuildClassModal 的局部 UI 状态需要随 charId 重置)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setGuildClassDismissed(false);
   }, [charId]);
   const guildClassOpen = classId === null && !guildClassDismissed;
@@ -310,6 +311,14 @@ export default function App() {
       currentRegion: quickStartInfo.regionId,
       currentSubRegion: quickStartInfo.subRegion,
       currentLocation: quickStartLocation?.name || quickStartInfo.subRegion,
+      // v0.5.1: Level-EXP 基础字段
+      level: 1,
+      exp: 0,
+      expToNext: 100,
+      unspentAttributePoints: 0,
+      // v0.5.2: 职业系统
+      classId: null,
+      classSkills: [],
       currentCoordinates: quickStartLocation?.coordinates
         ? { x: quickStartLocation.coordinates.x || 0, y: 0, z: quickStartLocation.coordinates.z || 0 }
         : { x: 0, y: 0, z: 0 },
