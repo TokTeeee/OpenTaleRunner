@@ -5,6 +5,7 @@ from models.character import CharacterCreate
 from repositories.character_repo import ICharacterRepo
 from routers.deps import get_character_repo, get_current_player
 from services.exp_formula import apply_exp_formula, exp_to_next, MAX_LEVEL
+from services.class_validator import validate_class_update
 
 router = APIRouter(prefix="/api/v1/characters", tags=["characters"])
 
@@ -16,6 +17,11 @@ class ExpGrantRequest(BaseModel):
 
 class AttributeSpendRequest(BaseModel):
     attribute: str  # one of STR/DEX/CON/INT/WIS/CHA
+
+
+class ClassSetRequest(BaseModel):
+    classId: str | None
+    classSkills: list = []
 
 
 @router.post("/create")
@@ -102,3 +108,26 @@ async def spend_attribute_point_endpoint(
         "unspentAttributePoints": new_pool,
     })
     return {"attributes": attrs, "unspentAttributePoints": new_pool}
+
+
+# ---------------------------------------------------------------------------
+# v0.5.2 — Class endpoint
+# ---------------------------------------------------------------------------
+
+@router.patch("/{char_id}/class")
+async def set_class_endpoint(
+    char_id: str,
+    body: ClassSetRequest,
+    repo: ICharacterRepo = Depends(get_character_repo),
+    player_id: str = Depends(get_current_player),
+):
+    char = await repo.get(char_id)
+    if not char:
+        raise HTTPException(404, "Character not found")
+    if char.get("playerId") != player_id:
+        raise HTTPException(403, "Not your character")
+
+    validate_class_update(char, body.classId, body.classSkills)
+    patch = {"classId": body.classId, "classSkills": body.classSkills}
+    await repo.update(char_id, {**char, **patch})
+    return patch
