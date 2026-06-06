@@ -170,14 +170,54 @@ v0.4 has three crossover points with the character system: v0.4 Codex treats "ch
 
 ### 4.4 Character Features Not Yet Introduced in v0.4
 
-- **Level-XP** — v0.5 first deliverable ✓ v0.5.1
+- **Level-XP** — v0.5 first deliverable ✓ v0.5.1 (v0.5.4 closes the trigger loop)
 - **Class system (4 base classes)** — v0.5 second deliverable ✓ v0.5.2
-- **Guild & tier auto-unlock (T2/T3/T4)** — v0.5 third deliverable ✓ v0.5.3
+- **Guild & tier auto-unlock (T2/T3/T4)** — v0.5 third deliverable ✓ v0.5.3 (v0.5.4 mounts GuildClassModal)
 - **Charisma full support** — long-term
 - **Enhanced character card export** (with equipment/skills/history) — long-term
 - **Class change / job advancement** — long-term (in v0.5 a chosen class is locked; job change is a v0.6+ topic)
 - **Portrait system** — long-term
 - **Lineage and race system** — long-term
+
+---
+
+## 4.5 v0.5.4 Increment — v0.5.x Audit Fixes
+
+After the v0.5 family shipped, a full audit found two functional gaps
+and two polish items, all closed in v0.5.4.
+
+### 4.5.1 EXP Trigger Loop Closed (v0.5.1 close-out)
+
+v0.5.1 already emits the four EXP-driving events
+(`COMBAT_HIT` / `COMBAT_KILL` / `COMBAT_END` / `NARRATIVE_SUBMIT` from
+`ActionResolver` / `CombatView` / `useActionSubmit`) but had **no
+subscriber**, so combat & narrative actions never actually grew EXP.
+
+New `client/src/services/level/subscribeCharacterEvents.ts`:
+
+- Subscribes to the four events on the singleton `eventBus`
+- EXP table: HIT +1 / KILL +5 / END.victory +30 / END.defeat +10 / END.fled +0 / NARRATIVE_SUBMIT +2
+- 800ms debounce merges all events in a window into a single PATCH
+- Server-authoritative response (level / exp / expToNext / unspentAttributePoints) is applied via `applyServerExpGrant`
+- Failure (non-2xx / network) is silently absorbed; the next batch retries
+- `App.tsx` calls `subscribeCharacterExpEvents()` once on mount; the subscription lives for the whole app lifetime
+
+### 4.5.2 GuildClassModal Mounted (v0.5.3 close-out)
+
+The v0.5.3 `GuildClassModal` component was complete but **never mounted**
+in `App.tsx`, so players who skipped the wizard had no UI to pick a
+class.
+
+`App.tsx` now mounts `<GuildClassModal open={classId===null && !dismissed} onClose={dismiss} />`
+next to `<TierUnlockModal />` in the single-player view. A `dismissed`
+`useState` lets the player hit "暂不选择" to leave; switching
+`characterId` automatically resets it so loading another character
+re-prompts.
+
+### 4.5.3 Consistency Polish
+
+- `expToNext(MAX_LEVEL)` returns `0` (matching `server/services/exp_formula.py`) instead of `Infinity`
+- Wizard T1 `unlockedAt` uses world day `1` instead of `Date.now()`, aligning with `GuildClassModal` / `TierUnlockModal`
 
 ---
 

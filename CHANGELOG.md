@@ -1,5 +1,65 @@
 # Changelog
 
+## v0.5.4 — 2026-06-06 (v0.5.x audit fixes)
+
+Hotfix release that closes two functional gaps discovered in the v0.5.x
+audit (see report in this repo) plus two minor polish items. v0.5.1's
+"EXP grant trigger chain" is now wired end-to-end; v0.5.3's
+`GuildClassModal` is finally mounted; `expToNext(20)` and the wizard's
+T1 `unlockedAt` are now consistent with the server / other modals.
+
+### Client — subscribeCharacterEvents (v0.5.1 close-out)
+- `client/src/services/level/subscribeCharacterEvents.ts` — new module.
+  Subscribes to `COMBAT_HIT` (+1) / `COMBAT_KILL` (+5) /
+  `COMBAT_END.{victory:30, defeat:10, fled:0}` / `NARRATIVE_SUBMIT` (+2)
+  on the singleton `eventBus`, accumulates the amount in a
+  debounce-window (default 800ms), and on flush sends **one**
+  `PATCH /api/v1/characters/{id}/exp` with `{ amount, difficulty: 'normal' }`.
+  The server-authoritative response is then applied via
+  `useCharacterStore.applyServerExpGrant(...)`. Failure (non-2xx / network)
+  is silently absorbed so the next batch will retry; no character is
+  mutated on failure.
+- `App.tsx` — adds a `useEffect(..., [])` that calls
+  `subscribeCharacterExpEvents()` on mount and returns its unsubscribe
+  closure. Subscriptions are singleton and live for the whole app
+  lifetime; combat + narrative events now actually drive EXP.
+
+### Client — GuildClassModal mounted (v0.5.3 close-out)
+- `App.tsx` — mounts `<GuildClassModal open={...} onClose={...} />`
+  alongside `<TierUnlockModal />` in the single-player view. Visibility
+  is derived from `character.classId === null && !dismissed`. A
+  `dismissed` `useState` lets the player hit "暂不选择" to leave the
+  guild modal, and is automatically reset when `characterId` changes
+  (loading another character re-prompts).
+
+### Polish
+- `client/src/services/level/expFormula.ts` — `expToNext(MAX_LEVEL)` now
+  returns `0` (matching `server/services/exp_formula.py`) instead of
+  `Infinity`. The old sentinel was not consumed by any UI but risked
+  misuse.
+- `client/src/components/modals/CharacterCreationWizard.tsx` — T1
+  `unlockedAt` now uses world day `1` instead of `Date.now()`, keeping
+  the wizard consistent with `GuildClassModal` and `TierUnlockModal`
+  (both of which already use `character.currentLocalDay`).
+
+### Tests
+- New `client/tests/services/level/subscribeCharacterEvents.test.ts`
+  (10 tests) covers: EXP_AMOUNTS table; single / 3x `COMBAT_HIT`
+  debounce merge; HIT + KILL + END(victory) sums to 36 in one PATCH;
+  `COMBAT_END.fled` no-op; `NARRATIVE_SUBMIT` amount=2; server response
+  applied via `applyServerExpGrant`; PATCH failure does not mutate
+  store; `unsub()` stops subscription; no character → events absorbed.
+- `client/tests/services/level/expFormula.test.ts` — `expToNext(20)`
+  expectation updated to `0`.
+- **Client**: 937 / 938 tests pass (the one failure is the pre-existing
+  `tests/services/combat/integration.test.ts` AP=4/5 flakiness, not
+  related to v0.5.4).
+- **Server**: 51 / 51 tests pass with `SERVICE_RATE_LIMIT=10000`
+  (the 4 default-rate failures are pre-existing test-ordering, not
+  related to v0.5.4).
+
+---
+
 ## v0.5.3 — 2026-06-06 (Guild & tier unlock)
 
 Adds the in-world **Adventurer's Guild** as the post-creation entry point for
