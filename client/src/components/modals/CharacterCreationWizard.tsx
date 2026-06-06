@@ -7,13 +7,16 @@ import { useWorldStore } from '../../stores/worldStore';
 import { LLMClient } from '../../services/llm/LLMClient';
 import { PromptBuilder } from '../../services/engine/PromptBuilder';
 import { generateInitialAttributes, validateAttributes } from '../../utils/formula';
-import type { Character, Attributes, AttributeName, Skill } from '../../types/character';
+import type { Character, Attributes, AttributeName, Skill, ClassSkillNode } from '../../types/character';
 import type { LLMConfig } from '../../types/llm';
 import { ATTRIBUTE_NAMES, ATTRIBUTE_LABELS } from '../../types/character';
 import { generateId } from '../../utils/text';
 import { getWorldLore, getWorldName, resolveStartingContext } from '../../services/storybook/runtime';
+import { CLASS_LIST, getClass } from '../../data/classes';
+import type { ClassId, ClassNode } from '../../types/class';
 
-type WizardStep = 1 | 2 | 3 | 4 | 5 | 6;
+const WIZARD_TOTAL_STEPS = 7;
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 function getBirthCoordinateBounds(locations: Array<{ coordinates?: { x: number; z: number } }>) {
   const coords = locations
@@ -54,6 +57,7 @@ export function CharacterCreationWizard({
   onComplete,
   onCancel,
   multiplayer,
+  initialStep,
 }: {
   onComplete: (char: Character) => void;
   onCancel: () => void;
@@ -61,12 +65,13 @@ export function CharacterCreationWizard({
     roomId: string;
     onReady: (character: Character) => Promise<void>;
   };
+  initialStep?: WizardStep;
 }) {
   const settings = useSettingsStore();
   const storybook = useWorldStore((s) => s.storybook);
   const worldLore = useWorldStore((s) => s.worldLore);
 
-  const [step, setStep] = useState<WizardStep>(1);
+  const [step, setStep] = useState<WizardStep>(initialStep ?? 1);
   const [loading, setLoading] = useState(false);
 
   // Step data
@@ -77,6 +82,13 @@ export function CharacterCreationWizard({
   const [equipmentSummary, setEquipmentSummary] = useState('');
   const [appearance, setAppearance] = useState('');
   const [characterName, setCharacterName] = useState('');
+  // v0.5.2 Step 7 — class
+  const [classId, setClassId] = useState<string | null>(null);
+  const [classSkills, setClassSkills] = useState<ClassSkillNode[]>([]);
+  // Step 7 internal: which class is being picked (null = at class grid)
+  const [pickingT1For, setPickingT1For] = useState<ClassId | null>(null);
+  // Step 7 internal: whether user explicitly picked "无职业" (vs initial state)
+  const [classNonePicked, setClassNonePicked] = useState(false);
 
   // PM dialogue for background step
   const [bgDialogue, setBgDialogue] = useState<Array<{ role: 'pm' | 'player'; content: string }>>([]);
@@ -143,6 +155,7 @@ export function CharacterCreationWizard({
       case 4: generateSkills(); return;
       case 5: generateEquipment(); return;
       case 6: if (!characterName && !appearance) generateNameAndAppearance(); return;
+      case 7: return; // class pick — no LLM call
     }
   };
 
@@ -320,6 +333,14 @@ export function CharacterCreationWizard({
           coordinates: villageCoordinates,
           summary: entryScene.slice(0, 120),
         }],
+        // v0.5.1 Level-EXP defaults (server overrides via /exp after first grant)
+        level: 1,
+        exp: 0,
+        expToNext: 100,
+        unspentAttributePoints: 0,
+        // v0.5.2 Class pick
+        classId,
+        classSkills,
       };
 
     if (multiplayer) {
@@ -555,6 +576,172 @@ export function CharacterCreationWizard({
     </div>
   );
 
+  const handleClassPick = (cls: ClassId | null) => {
+    if (cls === null) {
+      setClassId(null);
+      setClassSkills([]);
+      setPickingT1For(null);
+      setClassNonePicked(true);
+      return;
+    }
+    setClassId(cls);
+    setClassSkills([]);
+    setClassNonePicked(false);
+    setPickingT1For(cls);
+  };
+
+  const handleT1NodePick = (node: ClassNode) => {
+    if (!pickingT1For) return;
+    setClassSkills([{ classId: pickingT1For, nodeId: node.id, unlockedAt: Date.now() }]);
+    setPickingT1For(null);
+  };
+
+  const handleResetClassPick = () => {
+    setClassId(null);
+    setClassSkills([]);
+    setPickingT1For(null);
+    setClassNonePicked(false);
+  };
+
+  const renderClass = () => {
+    // Tier 1 节点选择
+    if (pickingT1For) {
+      const def = getClass(pickingT1For);
+      const t1Nodes = (def?.nodes ?? []).filter((n) => n.tier === 1);
+      return (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-gray-200">选择 T1 专精</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {def?.icon} {def?.name} — 选定一个 T1 节点作为你的初始专精
+            </p>
+          </div>
+          <div data-testid="classstep-tier1" className="grid grid-cols-1 gap-2 max-h-[45vh] overflow-y-auto">
+            {t1Nodes.map((node) => (
+              <button
+                key={node.id}
+                data-testid={`classstep-node-${node.id}`}
+                onClick={() => handleT1NodePick(node)}
+                className="text-left p-3 rounded-lg border border-gray-700 bg-gray-800 hover:bg-gray-750 transition-colors"
+              >
+                <div className="font-medium text-gray-200">{node.name}</div>
+                <div className="text-xs text-gray-400 mt-1">{node.description}</div>
+              </button>
+            ))}
+          </div>
+          <button
+            data-testid="classstep-back"
+            onClick={handleResetClassPick}
+            className="w-full py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            ← 重新选择职业
+          </button>
+        </div>
+      );
+    }
+
+    // 已选 class + T1 时的 summary
+    if (classId && classSkills.length > 0) {
+      const def = getClass(classId);
+      const t1Node = def?.nodes.find((n) => n.id === classSkills[0]?.nodeId);
+      return (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-gray-200">职业与专精</h3>
+            <p className="text-sm text-gray-500 mt-1">你的角色选择了</p>
+          </div>
+          <div className="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 space-y-2">
+            <div className="text-emerald-400 text-sm">
+              <span className="text-2xl mr-2">{def?.icon}</span>
+              <span className="font-bold">{def?.name}</span>
+            </div>
+            <div className="text-gray-300 text-sm">
+              <span className="text-xs text-gray-500">T1 专精: </span>
+              <span className="font-medium">{t1Node?.name}</span>
+            </div>
+            <div className="text-xs text-gray-500">{t1Node?.description}</div>
+          </div>
+          <button
+            onClick={handleResetClassPick}
+            className="w-full py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            重新选择职业
+          </button>
+        </div>
+      );
+    }
+
+    // 选 "无职业" 后的 summary
+    if (classNonePicked) {
+      return (
+        <div className="space-y-4">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-gray-200">选择你的职业</h3>
+            <p className="text-sm text-gray-500 mt-1">可选 4 大职业之一,或先以无职业身份踏上旅途 (后续可在冒险者公会选定)</p>
+          </div>
+          <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-3 text-sm text-gray-400 text-center">
+            ✓ 已选: <span className="text-gray-300 font-medium">无职业</span> (v0.5 之后可从冒险者公会补选)
+          </div>
+          <div className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto">
+            {CLASS_LIST.map((cls) => (
+              <button
+                key={cls.id}
+                data-testid={`classstep-class-${cls.id}`}
+                onClick={() => handleClassPick(cls.id)}
+                className="text-left p-3 rounded-lg border border-gray-700 bg-gray-800 hover:bg-gray-750 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-200">{cls.icon} {cls.name}</span>
+                  <span className="text-xs text-gray-500">主属性 {ATTRIBUTE_LABELS[cls.primaryAttribute]}</span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">{cls.description}</div>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleResetClassPick}
+            className="w-full py-2 text-sm bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            重新选择 (回到网格)
+          </button>
+        </div>
+      );
+    }
+
+    // 初始 class 网格
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <h3 className="text-xl font-bold text-gray-200">选择你的职业</h3>
+          <p className="text-sm text-gray-500 mt-1">可选 4 大职业之一,或先以无职业身份踏上旅途 (后续可在冒险者公会选定)</p>
+        </div>
+        <button
+          data-testid="classstep-none"
+          onClick={() => handleClassPick(null)}
+          className="w-full p-3 rounded-lg border border-dashed border-gray-600 bg-gray-800/40 hover:bg-gray-800 text-gray-300 text-sm font-medium transition-colors"
+        >
+          🆓 无职业 (暂不选择)
+        </button>
+        <div data-testid="classstep-classes" className="grid grid-cols-1 gap-2 max-h-[40vh] overflow-y-auto">
+          {CLASS_LIST.map((cls) => (
+            <button
+              key={cls.id}
+              data-testid={`classstep-class-${cls.id}`}
+              onClick={() => handleClassPick(cls.id)}
+              className="text-left p-3 rounded-lg border border-gray-700 bg-gray-800 hover:bg-gray-750 transition-colors"
+            >
+              <div className="flex items-center justify-between">
+                <span className="font-medium text-gray-200">{cls.icon} {cls.name}</span>
+                <span className="text-xs text-gray-500">主属性 {ATTRIBUTE_LABELS[cls.primaryAttribute]}</span>
+              </div>
+              <div className="text-xs text-gray-400 mt-1">{cls.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const renderStep = () => {
     switch (step) {
       case 1: return renderVillageSelect();
@@ -563,6 +750,7 @@ export function CharacterCreationWizard({
       case 4: return renderSkills();
       case 5: return renderEquipment();
       case 6: return renderReview();
+      case 7: return renderClass();
       default: return null;
     }
   };
@@ -632,6 +820,8 @@ export function CharacterCreationWizard({
       case 4: return skills.length > 0;
       case 5: return !!equipmentSummary;
       case 6: return !!characterName;
+      // Step 7 完成条件: 选了 "无职业" 或选了 class + T1 node
+      case 7: return classId === null || (!!classId && classSkills.length > 0 && !pickingT1For);
       default: return true;
     }
   };
@@ -642,14 +832,14 @@ export function CharacterCreationWizard({
         {/* Header with step indicator */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
           <h2 className="text-lg font-bold text-gray-200">
-             角色创建 ({step}/6)
+             角色创建 ({step}/{WIZARD_TOTAL_STEPS})
           </h2>
           <button onClick={onCancel} className="text-gray-500 hover:text-gray-300 text-xl">
             {'\u2715'}
           </button>
         </div>
         <div className="flex gap-1 px-4 py-2">
-          {[1, 2, 3, 4, 5, 6].map((s) => (
+          {Array.from({ length: WIZARD_TOTAL_STEPS }, (_, i) => i + 1).map((s) => (
             <div key={s} className={`flex-1 h-1 rounded ${s <= step ? 'bg-indigo-500' : 'bg-gray-700'}`} />
           ))}
         </div>
@@ -684,7 +874,7 @@ export function CharacterCreationWizard({
             上一步
           </button>
 
-          {step < 6 ? (
+          {step < WIZARD_TOTAL_STEPS ? (
             <button
               onClick={() => setStep((step + 1) as WizardStep)}
               disabled={!canNext() || loading}
