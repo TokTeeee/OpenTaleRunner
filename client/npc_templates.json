@@ -60,6 +60,18 @@
         "services": ["治疗HP", "解除负面状态", "出售治疗药水"],
         "canGrow": true
       },
+      "guild_class_officer": {
+        "type": "公会职业注册官",
+        "attributes_base": { "STR": 10, "DEX": 11, "CON": 12, "INT": 14, "WIS": 16, "CHA": 13 },
+        "skills": [
+          { "name": "职业知识", "level": 5, "relatedAttribute": "INT", "description": "熟悉所有 4 基础职业的技能树与战斗风格" },
+          { "name": "评估", "level": 4, "relatedAttribute": "WIS", "description": "评估冒险者潜力，推荐合适的专精路线" }
+        ],
+        "services": ["class_selection", "tier_unlock", "first_quest"],
+        "canGrow": false,
+        "greeting": "新面孔?来,告诉我你想成为什么.",
+        "npcId": "guild_class_officer_alden"
+      },
       "scholar": {
         "type": "学者",
         "attributes_base": { "STR": 8, "DEX": 10, "CON": 10, "INT": 17, "WIS": 15, "CHA": 13 },
