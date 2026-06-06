@@ -172,9 +172,88 @@ v0.4 has three crossover points with the character system: v0.4 Codex treats "ch
 
 - **Level-XP** — v0.5 first deliverable ✓ v0.5.1
 - **Class system (4 base classes)** — v0.5 second deliverable ✓ v0.5.2
+- **Guild & tier auto-unlock (T2/T3/T4)** — v0.5 third deliverable ✓ v0.5.3
 - **Charisma full support** — long-term
 - **Enhanced character card export** (with equipment/skills/history) — long-term
 - **Class change / job advancement** — long-term (in v0.5 a chosen class is locked; job change is a v0.6+ topic)
 - **Portrait system** — long-term
 - **Lineage and race system** — long-term
+
+---
+
+## 5. v0.5.3 Increment — Adventurer's Guild & Tier Auto-Unlock
+
+v0.5.3 extends the v0.5.2 "pick class at creation" experience into
+**"creation can be deferred, then finished at the guild"** plus an
+**auto-popping modal that prompts the player to pick their T2/T3/T4
+node at the corresponding level threshold**.
+
+### 5.1 Storybook guild placement
+
+`client/storybook.json` `royal_plains` sub-region gains:
+
+```json
+{
+  "id": "adventurer_guild_1",
+  "name": "Adventurer's Guild · Radiant City HQ",
+  "type": "guild",
+  "npcId": "guild_class_officer_alden",
+  "services": ["class_selection", "tier_unlock", "quest_board"]
+}
+```
+
+The accompanying NPC `guild_class_officer_alden` (Guild Master Alden) is
+defined in `client/npc_templates.json` under the `guild_class_officer`
+template (WIS 16 / INT 14, skills `[Profession Knowledge L5 INT,
+Appraisal L4 WIS]`, `canGrow: false`). v0.6 will add `GuildGenerator` to
+place multiple guilds procedurally.
+
+### 5.2 GuildClassModal — post-creation entry
+
+Render condition: `open=true && character && character.classId === null`.
+Players who already picked a class see nothing here (the "welcome back"
+dialog is v0.6).
+
+Two-step flow:
+1. Pick a class (4 buttons: warrior / cleric / mage / thief)
+2. Pick a T1 node (one of the 3 T1 nodes for that class)
+
+`setClass(pickingClass, [t1Node])` + `onClose()` happen **synchronously
+first**; `PATCH /api/v1/characters/{id}/class` runs in
+`void (async () => {...})()` (best-effort; on failure the local state is
+kept and the next guild visit will retry).
+
+### 5.3 TierUnlockModal — auto-prompter
+
+Reads `pendingTierChoice(character)` to decide visibility:
+
+| Condition | Result |
+|---|---|
+| `character === null` | hidden |
+| `character.classId === null` | hidden (player hasn't picked a class) |
+| `isCombatActive({ phase })` (`phase === 'active' \|\| 'resolving'`) | hidden (avoid covering QTE prompts) |
+| `pendingTierChoice` returns `null` | hidden (current tier full or not yet unlocked) |
+| `pendingTierChoice` returns `2 \| 3 \| 4` | shown; lists the 3 nodes of that tier |
+
+Click a node → `setClass(classId, [...classSkills, newSkill])` appends
+synchronously; async PATCH /class follows. On the next render
+`pendingTierChoice` sees that tier is full → returns `null` → modal
+auto-dismisses.
+
+### 5.4 setClass mutator
+
+`useCharacterStore.setClass(classId, classSkills)` is a **local-first**
+setter — it updates the store immediately so the UI reacts, then
+PATCHes the server asynchronously. This mirrors the "local update first"
+pattern used by `updateAttributes` / `addSkill` etc.
+
+### 5.5 Timing constraints
+
+- Guild modal: if the player walks into the guild mid-combat, the
+  caller is expected to refuse the open (spec §4.3.2)
+- Tier modal: if the L5 level-up happens mid-combat,
+  `pendingTierChoice` still returns 2, but `TierUnlockModal`'s
+  `isCombatActive` guard defers display until combat ends
+  (`phase === 'settled'`). This avoids interrupting the existing
+  interaction flow.
 

@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.5.3 — 2026-06-06 (Guild & tier unlock)
+
+Adds the in-world **Adventurer's Guild** as the post-creation entry point for
+class selection and the auto-popping **TierUnlockModal** that prompts the
+player to pick T2/T3/T4 nodes when their character levels up.
+
+### Storybook
+- `client/storybook.json` — `royal_plains` sub-region now has a `points_of_interest`
+  entry `adventurer_guild_1` (冒险者公会·光辉城总部, type=guild) plus a
+  `key_npcs` entry for **公会主事·奥尔登** (`guild_class_officer_alden`,
+  role=冒险者公会·职业注册官). Services: `class_selection` / `tier_unlock`
+  / `quest_board` / `first_quest`.
+- `client/npc_templates.json` — new `guild_class_officer` template (WIS 16 /
+  INT 14, skills `[职业知识 L5 INT, 评估 L4 WIS]`,
+  services `[class_selection, tier_unlock, first_quest]`, `canGrow=false`,
+  greeting "新面孔?来,告诉我你想成为什么.").
+
+### Client
+- `stores/characterStore.ts` — new `setClass(classId, classSkills)` mutator
+  (local-first; async PATCH /class is best-effort).
+- `components/modals/GuildClassModal.tsx` — the new "back-end" class picker.
+  Renders only when `open=true && character && character.classId === null`.
+  Two-step flow: pick class (warrior/cleric/mage/thief) → pick T1 node → calls
+  `setClass(...)` + `onClose()` immediately, then PATCHes
+  `/api/v1/characters/{id}/class` in the background (failure leaves the local
+  state intact for the next guild visit to retry).
+- `components/modals/TierUnlockModal.tsx` — the auto-prompter. Reads
+  `pendingTierChoice(character)` from the class service; renders nothing if
+  the character is null / has no classId / is in combat
+  (`isCombatActive({ phase })` helper) / has no pending choice. On node pick
+  appends the skill via `setClass(...)` (modal auto-dismisses on re-render)
+  and PATCHes /class asynchronously.
+- `App.tsx` — mounts `<TierUnlockModal />` alongside `<CombatView />` in the
+  single-player game view (overlay positioned above the layout; the modal
+  hides itself when nothing is due).
+
+### Tests
+- 928 client tests pass (83 test files; new: `GuildClassModal.test.tsx` (7
+  tests), `TierUnlockModal.test.tsx` (9 tests), `integration/guild.test.tsx`
+  (12 tests covering the end-to-end guild + tier-unlock + combat flow),
+  `data/storybookGuild.test.ts` (10 tests verifying the storybook POI
+  structure + npc template).
+- The 3 pre-existing lint warnings (`AttributeRow` dead code, `require()`
+  style) are unrelated to this change.
+
+---
+
 ## v0.5.2 — 2026-06-06 (Class system)
 
 Adds the 4-class skill tree system on top of the v0.5.1 Level-EXP foundation.
