@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useCharacterStore } from '../../stores/characterStore';
+import { useAuthStore } from '../../stores/authStore';
+import { useSettingsStore } from '../../stores/settingsStore';
 import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../types/character';
 import type { Attributes, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
@@ -31,6 +33,9 @@ export function CharacterPanel() {
         <div className="flex justify-between text-[10px] mb-1"><span className="text-rose-400/80">❤️ HP</span><span className="text-gray-500">{character.hp}/{character.maxHp}</span></div>
         <div className="h-1.5 rounded-full bg-white/5 overflow-hidden"><div className="h-full rounded-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all" style={{ width: `${hpPct}%` }} /></div>
       </div>
+
+      {/* v0.5.1 — Level & EXP bar */}
+      <LevelBar character={character} />
 
       {/* Attribute Radar Chart */}
       <AttributeRadar attributes={attrs} />
@@ -330,6 +335,103 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
           })}
         </svg>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// v0.5.1 — LevelBar & AttributeRow
+// ---------------------------------------------------------------------------
+
+import type { Character } from '../../types/character';
+
+function LevelBar({ character }: { character: Character }) {
+  const level = character.level ?? 1;
+  const exp = character.exp ?? 0;
+  const expToNext = character.expToNext ?? 100;
+  const unspentPoints = character.unspentAttributePoints ?? 0;
+  const pct = expToNext > 0 ? Math.min(100, (exp / expToNext) * 100) : 100;
+  const isMaxLevel = level >= 20 && expToNext === 0;
+  return (
+    <div>
+      <div className="flex justify-between text-[10px] mb-1">
+        <span className="text-amber-300/80">⚔️ Lv.{level}</span>
+        {isMaxLevel ? (
+          <span className="text-yellow-400/80 font-semibold">MAX</span>
+        ) : (
+          <span className="text-gray-500">{exp}/{expToNext}</span>
+        )}
+      </div>
+      <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      {unspentPoints > 0 && (
+        <div className="mt-1 text-[10px] text-cyan-300/80">
+          ✨ {unspentPoints} 个属性点待分配 — 点击下方 +1 按钮
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AttributeRow({
+  attrKey,
+  value,
+  characterId,
+  unspentPoints,
+}: {
+  attrKey: string;
+  value: number;
+  characterId: string;
+  unspentPoints: number;
+}) {
+  const applyServerAttributeSpend = useCharacterStore((s) => s.applyServerAttributeSpend);
+  const baseUrl = useSettingsStore((s) => s.server?.endpoint || 'http://localhost:8000');
+  const [pending, setPending] = useState(false);
+
+  const canSpend = unspentPoints > 0 && !pending && value < 20;
+
+  async function spend() {
+    if (!canSpend) return;
+    setPending(true);
+    try {
+      const token = useAuthStore.getState().token || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const res = await fetch(
+        `${baseUrl}/api/v1/characters/${characterId}/attributes/spend`,
+        { method: 'PATCH', headers, body: JSON.stringify({ attribute: attrKey }) },
+      );
+      if (res.ok) {
+        const body = await res.json();
+        applyServerAttributeSpend({ attributes: body.attributes, unspentAttributePoints: body.unspentAttributePoints });
+      }
+    } catch {
+      /* network error: silent retry on next click */
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] w-4 text-center">{ATTR_ICONS[attrKey] || '●'}</span>
+      <span className="text-[10px] text-gray-400 w-8">{ATTRIBUTE_LABELS[attrKey as keyof typeof ATTRIBUTE_LABELS]}</span>
+      <span className="text-[10px] text-gray-300 font-mono ml-auto">{value}</span>
+      {canSpend && (
+        <button
+          type="button"
+          aria-label={`+1 ${attrKey}`}
+          onClick={spend}
+          className="text-[9px] px-1 rounded bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 hover:bg-cyan-500/25 hover:border-cyan-400/50 transition-colors"
+          data-testid={`attr-spend-${attrKey}`}
+        >
+          +1
+        </button>
+      )}
     </div>
   );
 }
