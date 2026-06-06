@@ -54,6 +54,7 @@ class SqliteCharacterRepo(ICharacterRepo):
         return json.loads(row["data"]) if row else None
 
     async def update(self, char_id: str, data: dict) -> None:
+        data = _migrate_v04_to_v05(data)
         region = data.get("joinedRegion", data.get("world_state", {}).get("current_region", ""))
         await self.db.execute(
             "UPDATE characters SET data=?, region=?, updated_at=datetime('now') WHERE id=?",
