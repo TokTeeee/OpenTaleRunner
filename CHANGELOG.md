@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.5.2 — 2026-06-06 (Class system)
+
+Adds the 4-class skill tree system on top of the v0.5.1 Level-EXP foundation.
+Class choice happens at character creation (new wizard Step 7); post-creation
+selection/edit happens at the Guild (v0.5.3, not in this release).
+
+### Class System
+- 4 base classes — **Warrior** (⚔️ STR/HP/damage), **Cleric** (✨ WIS/MP/healing),
+  **Mage** (🔮 INT/MP/QTE tolerance), **Thief** (🗡️ DEX/crit/dodge)
+- Each class has 4 tiers × 3-pick-1 skill tree = 12 nodes per class (48 total)
+- Tier unlock: **T1 at class choice**, T2 at L5, T3 at L10, T4 at L15
+- 7 effect types: `attribute_mod`, `hp_max_bonus`, `mp_max_bonus`,
+  `dodge_threshold_bonus`, `damage_modifier`, `exp_bonus`, `qte_tolerance`
+- Class is **locked** in v0.5 — a non-null `classId` cannot be changed (server
+  returns 422). `null` is the allowed "重置" sentinel.
+
+### Server
+- `services/class_validator.py` — pure-function validator
+  - `classId` allowlist: `{warrior, cleric, mage, thief}`
+  - `nodeId` regex: `^(warrior|cleric|mage|thief)_t[1-4]_[1-3]$`
+  - `nodeId` prefix must match the chosen `classId` (no cross-class nodes)
+  - level-aware max node count: 1 (L1-4) / 2 (L5-9) / 3 (L10-14) / 4 (L15-20)
+  - must have ≥ 1 T1 node when choosing a non-null classId
+- `routers/character_router.py` — new `PATCH /api/v1/characters/{id}/class`
+  with `ClassSetRequest { classId: string|null, classSkills: ClassSkillNode[] }`
+  (owner-only; 403 on non-owner; 422 on validation failure)
+
+### Client
+- `data/classes/{warrior,cleric,mage,thief}.ts` — 48 node definitions + `index.ts`
+  exports `CLASS_REGISTRY` / `CLASS_LIST` / `getClass()`
+- `types/class.ts` — `ClassId` / `ClassNode` / `ClassNodeEffect` / `ClassDefinition`
+- `services/class/classEffects.ts` — `aggregateClassEffects(character): ClassBonus`
+  computes `attributeMods / hpMaxBonus / mpMaxBonus / dodgeThresholdBonus /
+  damageModifier / expBonus / qteToleranceMs`
+- `services/class/classService.ts` — `pendingTierChoice(character)` (returns the
+  next tier to pick, `null` if none) + `isValidClassNodeId(classId, nodeId)`
+- `components/modals/CharacterCreationWizard.tsx` — new Step 7 "职业与专精"
+  with 4-class grid + "无职业" (defer to guild) + per-class T1 picker; `classId`
+  and `classSkills` persisted into the final character
+- `components/panels/CharacterPanel/ClassSkillTreeView.tsx` — 4×3 grid of all
+  12 class nodes with picked / dimmed / locked-by-tier styling; embedded in
+  `CharacterPanel` above the Skills section
+
+### Tests
+- 8 server tests pass (`test_class_validator.py`, `test_character_router_class.py`)
+- 905 client tests pass (78 test files; new: `data/classes.test.ts`,
+  `classEffects.test.ts`, `classService.test.ts`, `ClassSkillTreeView.test.tsx`,
+  `CharacterCreationWizard.test.tsx`, `integration/class.test.ts`)
+
+---
+
 ## v0.5.1 — 2026-06-06 (Level-EXP foundation)
 
 This version introduces the level / experience system and the foundation for

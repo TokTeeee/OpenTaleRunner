@@ -170,10 +170,11 @@ v0.4 has three crossover points with the character system: v0.4 Codex treats "ch
 
 ### 4.4 Character Features Not Yet Introduced in v0.4
 
-- **Level-XP** — v0.5 first deliverable
-- **Charisma full support** — v0.5 second deliverable
-- **Enhanced character card export** (with equipment/skills/history) — v0.5 third deliverable
-- **Class and job-change system** — long-term
+- **Level-XP** — v0.5 first deliverable ✓ v0.5.1
+- **Class system (4 base classes)** — v0.5 second deliverable ✓ v0.5.2
+- **Charisma full support** — long-term
+- **Enhanced character card export** (with equipment/skills/history) — long-term
+- **Class change / job advancement** — long-term (in v0.5 a chosen class is locked; job change is a v0.6+ topic)
 - **Portrait system** — long-term
 - **Lineage and race system** — long-term
 
