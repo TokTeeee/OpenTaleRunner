@@ -15,7 +15,7 @@ export const WARRIOR: ClassDefinition = {
     { id: 'warrior_t1_3', classId: 'warrior', tier: 1, slot: 3, name: '战嚎',     description: '冲锋时发出震慑敌人的怒吼, 伤害+10%。',           effect: { type: 'damage_modifier', bonus: 0.10 } },
     // T2 — 5 级解锁
     { id: 'warrior_t2_1', classId: 'warrior', tier: 2, slot: 1, name: '不屈',     description: '对疼痛的耐受力, 生命上限+8。',                     effect: { type: 'hp_max_bonus', bonus: 8 } },
-    { id: 'warrior_t2_2', classId: 'warrior', tier: 2, slot: 2, name: '盾墙',     description: '盾牌格挡几率+2 (降低被招架的阈值)。',              effect: { type: 'dodge_threshold_bonus', bonus: 2 } },
+    { id: 'warrior_t2_2', classId: 'warrior', tier: 2, slot: 2, name: '盾墙',     description: '盾牌格挡更容易, 招架门槛 -2 (敌人更难击中我)。',         effect: { type: 'dodge_threshold_bonus', bonus: -2 } },
     { id: 'warrior_t2_3', classId: 'warrior', tier: 2, slot: 3, name: '横扫',     description: '挥砍波及周围, 伤害+15%。',                         effect: { type: 'damage_modifier', bonus: 0.15 } },
     // T3 — 10 级解锁
     { id: 'warrior_t3_1', classId: 'warrior', tier: 3, slot: 1, name: '钢铁意志', description: '精神与肉体同样强壮, 体质+2。',                     effect: { type: 'attribute_mod', attribute: 'CON', bonus: 2 } },
