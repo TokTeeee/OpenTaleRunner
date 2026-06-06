@@ -1,5 +1,52 @@
 # Changelog
 
+## v0.5.1 — 2026-06-06 (Level-EXP foundation)
+
+This version introduces the level / experience system and the foundation for
+the class system (v0.5.2+). All v0.4 character saves are migrated
+automatically and idempotently on every create/update.
+
+### Server
+- `repositories/character_repo.py::_migrate_v04_to_v05` — idempotent backfill of
+  `level`, `exp`, `expToNext`, `unspentAttributePoints`, `classId`,
+  `classSkills`; attribute clamp widened from `[3, 18]` to `[1, 20]`
+- `services/exp_formula.py` — pure formula `expToNext(level) = round(100 * L^1.5)`
+  (capped at `MAX_LEVEL=20`) + `apply_exp_formula` chain-level helper
+- `routers/character_router.py` — two new PATCH endpoints:
+  - `PATCH /api/v1/characters/{id}/exp` — grants EXP with difficulty multiplier
+    (easy 0.5× / normal 1.0× / hard 1.5× / deadly 2.0×), chains level-ups
+  - `PATCH /api/v1/characters/{id}/attributes/spend` — spends an
+    `unspentAttributePoints` to bump a single attribute (capped at 20)
+- Owner-only access (returns 403 if `character.playerId != current_user`)
+
+### Client
+- `services/level/expFormula.ts` + `services/level/grantExp.ts` — pure client
+  mirrors of the server formula, used for local UI feedback
+- `types/character.ts` — `Character` interface gains the 6 v0.5 fields
+- `stores/characterStore.ts` — `applyServerExpGrant` + `applyServerAttributeSpend`
+  patch appliers; `updateAttributes` clamp widened to `[1, 20]`
+- `services/event/events.ts` — new event constants:
+  `COMBAT_HIT`, `COMBAT_KILL`, `COMBAT_END`, `NARRATIVE_SUBMIT`, `LEVEL_UP`
+- `services/combat/ActionResolver.ts` — emits `COMBAT_HIT` on every hit and
+  `COMBAT_KILL` when the target HP drops to 0 or below
+- `components/combat/CombatView.tsx` — emits `COMBAT_END` with
+  `{outcome: 'victory'|'defeat'|'fled'}` before `beginResolving`
+- `hooks/pmEngine/useActionSubmit.ts` — emits `NARRATIVE_SUBMIT` after PM
+  finishes
+- `components/panels/CharacterPanel.tsx` — `LevelBar` (Lv. number + exp bar
+  with `MAX` sentinel at level 20) and per-attribute `+1` buttons that PATCH
+  `/attributes/spend`; `AttributeRadar` `MAX` widened to 20
+- `tests/setup.ts` — adds explicit `cleanup()` from `@testing-library/react`
+  to fix DOM accumulation between tests in jsdom
+
+### Tests
+- 13 server tests pass (`test_exp_formula`, `test_migrate_v04_to_v05`,
+  `test_character_router_exp`)
+- 841 client tests pass (74 test files; new: `expFormula`, `grantExp`,
+  `eventBus_v051`, `characterStore_v051`, `CharacterPanel_v051`)
+
+---
+
 ## v0.4 (unreleased)
 
 This version shifts focus to "playability": a full combat system, item comparison + affix pool, generalized UI refactor, cross-session NPC memory, and in-game codex.
