@@ -38,6 +38,8 @@ import { ToastContainer } from './components/common/ToastContainer';
 import { useCodexInit } from './hooks/useCodexInit';
 import { CombatView } from './components/combat/CombatView';
 import { TierUnlockModal } from './components/modals/TierUnlockModal';
+import { GuildClassModal } from './components/modals/GuildClassModal';
+import { subscribeCharacterExpEvents } from './services/level/subscribeCharacterEvents';
 import { useUIStore } from './stores/uiStore';
 import { useNPCStore } from './stores/npcStore';
 import { useMultiplayerStore } from './stores/multiplayerStore';
@@ -263,6 +265,22 @@ export default function App() {
 
     return unsubscribe;
   }, [phase]);
+
+  // v0.5.4: 订阅战斗/叙事事件 → debounce 合并 PATCH /exp, 服务端权威返回后 apply 到 store
+  useEffect(() => {
+    const unsubscribe = subscribeCharacterExpEvents();
+    return unsubscribe;
+  }, []);
+
+  // v0.5.4: GuildClassModal 自动显示: classId=null 且未被玩家手动关闭时
+  const [guildClassDismissed, setGuildClassDismissed] = useState(false);
+  const charId = useCharacterStore((s) => s.character?.characterId);
+  const classId = useCharacterStore((s) => s.character?.classId);
+  useEffect(() => {
+    // 切换角色时重置 dismissed
+    setGuildClassDismissed(false);
+  }, [charId]);
+  const guildClassOpen = classId === null && !guildClassDismissed;
 
   // v0.4-codex: 启动时恢复 localStorage / 从 inventory seed, 持久化 debounce 写
   useCodexInit();
@@ -746,6 +764,10 @@ export default function App() {
     <ErrorBoundary>
       <CombatView />
       <TierUnlockModal />
+      <GuildClassModal
+        open={guildClassOpen}
+        onClose={() => setGuildClassDismissed(true)}
+      />
       <AppLayout
         onAutoPlayStart={startAutoPlay}
         onAutoPlayPause={pauseAutoPlay}
