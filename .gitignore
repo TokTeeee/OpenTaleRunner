@@ -1,0 +1,52 @@
+test_api.text
+
+# Frontend dependencies and build outputs
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# Temporary build/test output
+.tmp/
+
+# Local-only scratch files (commit message drafts, lint/typecheck dumps)
+.lint-out.txt
+.typecheck-out.txt
+.test-out.txt
+.build-out.txt
+.commit-msg.txt
+.vitest_*.log
+
+# Brainstorm visual companion (local session files)
+.superpowers/
+
+# Python bytecode, caches, and virtual environments
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+ENV/
+
+# Local environment files (API keys, secrets)
+.env
+.env.local
+.env.*.local
+
+# Server runtime database files
+server/data/*.db
+server/data/*.db-*
+server/data/*.sqlite
+server/data/*.sqlite-*
+server/data/*.json
+
+# Logs
+logs/

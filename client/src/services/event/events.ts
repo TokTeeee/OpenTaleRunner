@@ -1,0 +1,16 @@
+export const EVENTS = {
+  SCENE_LOADED: 'scene:loaded',
+  DICE_PENDING: 'dice:pending',
+  DICE_ROLLED: 'dice:rolled',
+  NARRATIVE_RECEIVED: 'narrative:received',
+  CRITICAL_SYNC_FLUSH: 'sync:critical_flush',
+  DAY_COMPLETED: 'day:completed',
+  GHOST_NPC_APPEARED: 'ghost:npc_appeared',
+  NETWORK_OFFLINE: 'network:offline',
+  NETWORK_ONLINE: 'network:online',
+  WORLD_SYNCED: 'world:synced',
+  WORLD_UPDATE_PUSHED: 'world:update_pushed',
+  PM_ERROR: 'pm:error',
+  ACTION_POINTS_CHANGED: 'action:points_changed',
+  GM_ACTIVITY: 'gm:activity',
+} as const;

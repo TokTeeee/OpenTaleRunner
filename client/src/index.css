@@ -1,0 +1,361 @@
+@import "tailwindcss";
+
+/* ═══════════════════════════════════════════════════════════════
+   1) Tailwind 4 主题令牌 — @theme 块
+   所有色名 / 字体名 / 阴影名都会自动生成 Tailwind 工具类
+   例如: bg-ink-950 / text-gold-500 / font-display / shadow-parchment
+   ═══════════════════════════════════════════════════════════════ */
+@theme {
+  /* 墨水（暗色基底） */
+  --color-ink-950: #08080f;
+  --color-ink-900: #0d0d1f;
+  --color-ink-850: #10102a;
+  --color-ink-800: #14142a;
+  --color-ink-700: #1c1c38;
+  --color-ink-600: #2a2a4a;
+  --color-ink-500: #3b3b6d;
+  --color-ink-400: #5a5a8a;
+  --color-ink-300: #8a8ab0;
+  --color-ink-200: #c8c8d4;
+  --color-ink-100: #e8e8f0;
+  --color-ink-50:  #f4f4fa;
+
+  /* 羊皮卷暖金 */
+  --color-gold-700: #8a6a3a;
+  --color-gold-600: #b8924e;
+  --color-gold-500: #d4b884;
+  --color-gold-400: #e8d4a8;
+  --color-gold-300: #f4e8c8;
+
+  /* 气泡背景 (v0.4-ui P0: 与 tokens.ts bg.bubble* 同步) */
+  --color-bubble-pm:       #10211f;
+  --color-bubble-decision: #1a1a30;
+  --color-bubble-system:   #11111f;
+
+  /* 强调色（保留 Tailwind 默认 indigo/purple/emerald/cyan/amber/rose） */
+
+  /* 字体族 */
+  --font-display: "Cinzel", "Noto Serif SC", Georgia, serif;
+  --font-narrative: "Lora", "Noto Serif SC", Georgia, serif;
+  --font-sans: "Inter Tight", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-quote: "EB Garamond", "Noto Serif SC", Georgia, serif;
+
+  /* 阴影 */
+  --shadow-parchment:
+    inset 0 1px 0 rgba(212,184,132,0.08),
+    inset 0 -1px 0 rgba(0,0,0,0.4),
+    0 2px 4px rgba(0,0,0,0.3),
+    0 8px 24px rgba(0,0,0,0.4);
+  --shadow-glow-gold:
+    0 0 0 1px rgba(212,184,132,0.2),
+    0 0 16px rgba(212,184,132,0.15),
+    0 0 32px rgba(212,184,132,0.08);
+  --shadow-glow-indigo:
+    0 0 0 1px rgba(99,102,241,0.3),
+    0 0 24px rgba(99,102,241,0.4),
+    0 0 48px rgba(99,102,241,0.2);
+  --shadow-glow-rose:
+    0 0 0 1px rgba(244,63,94,0.3),
+    0 0 24px rgba(244,63,94,0.4),
+    0 0 48px rgba(244,63,94,0.2);
+  --shadow-glow-emerald:
+    0 0 0 1px rgba(16,185,129,0.3),
+    0 0 24px rgba(16,185,129,0.4),
+    0 0 48px rgba(16,185,129,0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   2) 基础重置与全局排印
+   ═══════════════════════════════════════════════════════════════ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background: #08080f;
+  color: #c8c8d4;
+  font-family: var(--font-sans);
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 选区颜色 */
+::selection {
+  background: rgba(212, 184, 132, 0.25);
+  color: #f4e8c8;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(129, 140, 248, 0.4); }
+
+/* 焦点环 */
+:focus-visible {
+  outline: 2px solid #d4b884;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 减少动效偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   3) 自定义工具类
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── 玻璃拟态 ── */
+@utility glass {
+  background: rgba(18, 18, 30, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+@utility glass-strong {
+  background: rgba(14, 14, 24, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+@utility glass-weak {
+  background: rgba(18, 18, 30, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* ── 氛围背景（多径向 + 底色） ── */
+@utility bg-ambient {
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 10%, rgba(168, 85, 247, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 90%, rgba(212, 184, 132, 0.025) 0%, transparent 50%),
+    radial-gradient(ellipse at 10% 80%, rgba(16, 185, 129, 0.02) 0%, transparent 50%),
+    #08080f;
+}
+
+/* ── 噪点纹理（细颗粒羊皮纸感） ── */
+@utility noise-grain {
+  position: relative;
+}
+@utility noise-grain-* {
+  position: relative;
+}
+.noise-grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.78 0 0 0 0 0.55 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+}
+
+/* ── 魔法阵网格（装饰性） ── */
+@utility arcane-grid {
+  background-image:
+    linear-gradient(rgba(212, 184, 132, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(212, 184, 132, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── 星空（保留旧版星点作为可选项） ── */
+@utility stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,.15), transparent),
+    radial-gradient(1px 1px at 25% 35%, rgba(255,255,255,.1), transparent),
+    radial-gradient(1px 1px at 40% 8%, rgba(255,255,255,.12), transparent),
+    radial-gradient(1px 1px at 60% 25%, rgba(255,255,255,.08), transparent),
+    radial-gradient(1px 1px at 75% 60%, rgba(255,255,255,.1), transparent),
+    radial-gradient(1px 1px at 85% 80%, rgba(255,255,255,.06), transparent),
+    radial-gradient(1px 1px at 15% 70%, rgba(255,255,255,.09), transparent),
+    radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,.07), transparent);
+}
+
+/* ── 装饰分隔线（卢恩符文） ── */
+@utility rune-divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #d4b884;
+  opacity: 0.7;
+  font-family: var(--font-display);
+  letter-spacing: 0.3em;
+}
+@utility rune-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(212, 184, 132, 0.4) 50%,
+    transparent 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   4) 排印工具类
+   ═══════════════════════════════════════════════════════════════ */
+@utility font-display { font-family: var(--font-display); }
+@utility font-narrative { font-family: var(--font-narrative); }
+@utility font-mono { font-family: var(--font-mono); }
+@utility font-quote { font-family: var(--font-quote); }
+
+/* 戏剧化标题（字距 + 装饰） */
+@utility title-drama {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+@utility title-quill {
+  font-family: var(--font-narrative);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}
+
+/* 数值/时间戳 */
+@utility numeric {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   5) 动效关键帧
+   ═══════════════════════════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(99, 102, 241, 0.15); }
+  50%      { box-shadow: 0 0 20px rgba(99, 102, 241, 0.35); }
+}
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(212, 184, 132, 0.2), 0 0 12px rgba(212, 184, 132, 0.1); }
+  50%      { box-shadow: 0 0 0 1px rgba(212, 184, 132, 0.4), 0 0 24px rgba(212, 184, 132, 0.25); }
+}
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.85; }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes runeRotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes inkDrip {
+  0%   { transform: translateY(-100%) scaleY(0.4); opacity: 0; }
+  60%  { transform: translateY(0) scaleY(1); opacity: 1; }
+  100% { transform: translateY(0) scaleY(1); opacity: 0.6; }
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@utility animate-in { animation: fadeInUp 0.35s ease-out both; }
+@utility animate-fade-in { animation: fadeIn 0.22s ease-out both; }
+@utility animate-fade-scale { animation: fadeInScale 0.22s ease-out both; }
+@utility animate-breathe { animation: breathe 2s ease-in-out infinite; }
+@utility animate-pulse-glow { animation: pulseGlow 2.4s ease-in-out infinite; }
+@utility animate-pulse-gold { animation: pulseGold 2.4s ease-in-out infinite; }
+@utility animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(212, 184, 132, 0.08) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+@utility animate-ink-drip { animation: inkDrip 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+
+/* ═══════════════════════════════════════════════════════════════
+   6) 表单元素
+   ═══════════════════════════════════════════════════════════════ */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+input[type="url"],
+input:not([type]) {
+  font-family: var(--font-sans);
+}
+
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: rgba(212, 184, 132, 0.15);
+  border-radius: 2px;
+  outline: none;
+  transition: background 0.2s;
+}
+input[type="range"]:hover { background: rgba(212, 184, 132, 0.25); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8d4a8 0%, #d4b884 50%, #b8924e 100%);
+  cursor: pointer;
+  border: 1px solid #8a6a3a;
+  box-shadow: 0 0 8px rgba(212, 184, 132, 0.3);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8d4a8 0%, #d4b884 50%, #b8924e 100%);
+  cursor: pointer;
+  border: 1px solid #8a6a3a;
+}
+
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath fill='%23d4b884' d='M5 7L1 3h8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+
+textarea {
+  font-family: var(--font-narrative);
+  line-height: 1.7;
+}

@@ -1,0 +1,138 @@
+{
+  "npc_templates": {
+    "version": 1,
+    "description": "NPC模板 — 服务端下发给客户端的基础NPC生成数据。客户端基于模板生成NPC，上传后补充服务端数据库。任何NPC都可能因玩家集体行为被服务端'升格'为重要NPC。",
+
+    "generation_rules": {
+      "common": "以下模板为城市/村庄的常见职能NPC。客户端进入区域时拉取，PM基于模板生成具体NPC（名字、外貌、性格由PM根据区域文化动态生成）。",
+      "promotion": "当某个NPC在多个玩家的编年史中被提及、或单个玩家交互超过20次、或好感度达到80以上时，服务端自动升格该NPC——为其生成详细背景故事，并在区域内向其他玩家广播。"
+    },
+
+    "templates": {
+      "merchant": {
+        "type": "商人",
+        "attributes_base": { "STR": 9, "DEX": 11, "CON": 11, "INT": 13, "WIS": 13, "CHA": 15 },
+        "skills": [
+          { "name": "估价", "level": 5, "relatedAttribute": "INT", "description": "准确判断物品价值" },
+          { "name": "谈判", "level": 4, "relatedAttribute": "CHA", "description": "在交易中获得更优价格" }
+        ],
+        "services": ["买卖物品", "情报交易（小道消息）"],
+        "canGrow": true
+      },
+      "blacksmith": {
+        "type": "铁匠",
+        "attributes_base": { "STR": 16, "DEX": 12, "CON": 14, "INT": 12, "WIS": 11, "CHA": 10 },
+        "skills": [
+          { "name": "锻造", "level": 5, "relatedAttribute": "STR", "description": "打造和修复武器防具" },
+          { "name": "矿石鉴定", "level": 3, "relatedAttribute": "INT", "description": "识别矿石材质" }
+        ],
+        "services": ["修理装备", "打造新装备（需材料）", "强化装备"],
+        "canGrow": true
+      },
+      "innkeeper": {
+        "type": "旅店老板",
+        "attributes_base": { "STR": 10, "DEX": 10, "CON": 12, "INT": 12, "WIS": 14, "CHA": 16 },
+        "skills": [
+          { "name": "察言观色", "level": 4, "relatedAttribute": "WIS", "description": "洞察客人的情绪和意图" },
+          { "name": "烹饪", "level": 3, "relatedAttribute": "DEX", "description": "制作恢复精力的食物" }
+        ],
+        "services": ["休息恢复", "存储物品", "打听消息"],
+        "canGrow": false
+      },
+      "guard": {
+        "type": "守卫",
+        "attributes_base": { "STR": 14, "DEX": 12, "CON": 14, "INT": 10, "WIS": 11, "CHA": 11 },
+        "skills": [
+          { "name": "巡逻", "level": 4, "relatedAttribute": "WIS", "description": "察觉可疑人员和危险" },
+          { "name": "长矛术", "level": 3, "relatedAttribute": "STR", "description": "守卫标准战斗训练" }
+        ],
+        "services": ["区域安保", "报告犯罪", "通缉令发布"],
+        "canGrow": true,
+        "isHostileToCriminals": true
+      },
+      "healer": {
+        "type": "治疗师",
+        "attributes_base": { "STR": 9, "DEX": 12, "CON": 11, "INT": 15, "WIS": 16, "CHA": 14 },
+        "skills": [
+          { "name": "治愈术式", "level": 5, "relatedAttribute": "WIS", "description": "使用术式治疗伤口和疾病" },
+          { "name": "草药学", "level": 4, "relatedAttribute": "INT", "description": "采集和配制治疗药物" }
+        ],
+        "services": ["治疗HP", "解除负面状态", "出售治疗药水"],
+        "canGrow": true
+      },
+      "scholar": {
+        "type": "学者",
+        "attributes_base": { "STR": 8, "DEX": 10, "CON": 10, "INT": 17, "WIS": 15, "CHA": 13 },
+        "skills": [
+          { "name": "古代文字", "level": 5, "relatedAttribute": "INT", "description": "解读古代文献和符文" },
+          { "name": "历史知识", "level": 4, "relatedAttribute": "INT", "description": "各区域历史事件的知识" }
+        ],
+        "services": ["鉴定遗物", "翻译古文", "提供历史线索"],
+        "canGrow": true,
+        "mayKnowSecrets": true
+      },
+      "hunter": {
+        "type": "猎人",
+        "attributes_base": { "STR": 13, "DEX": 16, "CON": 14, "INT": 11, "WIS": 15, "CHA": 10 },
+        "skills": [
+          { "name": "追踪", "level": 5, "relatedAttribute": "WIS", "description": "追踪猎物和人物的足迹" },
+          { "name": "弓术", "level": 4, "relatedAttribute": "DEX", "description": "熟练使用弓箭" }
+        ],
+        "services": ["指引野外道路", "出售猎物和材料", "提供怪物情报"],
+        "canGrow": true
+      },
+      "farmer": {
+        "type": "农夫",
+        "attributes_base": { "STR": 13, "DEX": 10, "CON": 14, "INT": 10, "WIS": 12, "CHA": 11 },
+        "skills": [
+          { "name": "耕作", "level": 5, "relatedAttribute": "CON", "description": "种植和收获农作物" }
+        ],
+        "services": ["出售食物", "提供住宿（简陋）", "区域传闻"],
+        "canGrow": false
+      },
+      "priest": {
+        "type": "祭司",
+        "attributes_base": { "STR": 9, "DEX": 10, "CON": 11, "INT": 14, "WIS": 17, "CHA": 16 },
+        "skills": [
+          { "name": "祝福术", "level": 4, "relatedAttribute": "CHA", "description": "给予临时属性加成的祝福" },
+          { "name": "净化", "level": 3, "relatedAttribute": "WIS", "description": "净化轻微的诅咒和魔气侵染" }
+        ],
+        "services": ["祝福加成", "净化负面状态", "精神咨询"],
+        "canGrow": true
+      },
+      "alchemist": {
+        "type": "炼金术士",
+        "attributes_base": { "STR": 9, "DEX": 13, "CON": 11, "INT": 17, "WIS": 13, "CHA": 11 },
+        "skills": [
+          { "name": "炼金术", "level": 5, "relatedAttribute": "INT", "description": "调配药剂和魔法物品" },
+          { "name": "材料学", "level": 4, "relatedAttribute": "INT", "description": "识别和处理魔法材料" }
+        ],
+        "services": ["出售药水", "定制药剂", "鉴定魔法物品"],
+        "canGrow": true
+      },
+      "adventurer_guild_staff": {
+        "type": "公会职员",
+        "attributes_base": { "STR": 10, "DEX": 11, "CON": 11, "INT": 14, "WIS": 13, "CHA": 14 },
+        "skills": [
+          { "name": "文书处理", "level": 4, "relatedAttribute": "INT", "description": "高效处理委托和档案" },
+          { "name": "情报整理", "level": 3, "relatedAttribute": "WIS", "description": "从大量信息中筛选有用线索" }
+        ],
+        "services": ["发布/交付委托", "查询区域信息", "登记冒险者"],
+        "canGrow": false
+      }
+    },
+
+    "npc_promotion_criteria": {
+      "player_attention": "累计5个不相关玩家与该NPC交互 → 服务端标记为'受关注'",
+      "story_significance": "NPC在3个以上编年史日中被提及 → 服务端为其生成扩展背景故事",
+      "high_affinity": "单个玩家好感度 ≥ 80 → 服务端为该NPC解锁专属支线任务",
+      "regional_impact": "NPC行为对区域状态产生实质影响 → 服务端将其登记为区域固定NPC",
+      "world_significance": "NPC行为对主线产生不可忽视的影响 → 服务端将其加入世界编年史的常驻角色列表"
+    },
+
+    "author_npcs": {
+      "description": "世界作者可以在此手工添加具有完整背景故事的NPC。这些NPC与模板NPC没有本质区别——唯一的区别是它们初始就有完整的背景。它们同样受升格机制影响。",
+      "list": []
+    }
+  }
+}
