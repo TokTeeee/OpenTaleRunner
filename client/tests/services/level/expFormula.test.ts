@@ -11,8 +11,8 @@ describe('expToNext', () => {
   it('l19 -> l20 is 8282', () => {
     expect(expToNext(19)).toBe(8282);
   });
-  it('l20 returns Infinity (sentinel for max level)', () => {
-    expect(expToNext(MAX_LEVEL)).toBe(Infinity);
+  it('l20 returns 0 (sentinel for max level, mirrors server exp_formula)', () => {
+    expect(expToNext(MAX_LEVEL)).toBe(0);
   });
   it('l0 returns 0 (sentinel for uninitialised)', () => {
     expect(expToNext(0)).toBe(0);

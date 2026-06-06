@@ -9,7 +9,7 @@ export const MAX_LEVEL = 20;
 export const EXP_PER_LEVEL_BASE = 100;
 
 export function expToNext(level: number): number {
-  if (level >= MAX_LEVEL) return Infinity;
+  if (level >= MAX_LEVEL) return 0; // v0.5.4: 与 server exp_formula.py 一致, 满级锁 0
   if (level < 1) return 0;
   return Math.round(100 * Math.pow(level, 1.5));
 }

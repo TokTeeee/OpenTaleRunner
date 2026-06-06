@@ -592,7 +592,8 @@ export function CharacterCreationWizard({
 
   const handleT1NodePick = (node: ClassNode) => {
     if (!pickingT1For) return;
-    setClassSkills([{ classId: pickingT1For, nodeId: node.id, unlockedAt: Date.now() }]);
+    // v0.5.4: 用世界日 (创建时 worldDay=1), 与 GuildClassModal / TierUnlockModal 保持一致
+    setClassSkills([{ classId: pickingT1For, nodeId: node.id, unlockedAt: 1 }]);
     setPickingT1For(null);
   };
 
