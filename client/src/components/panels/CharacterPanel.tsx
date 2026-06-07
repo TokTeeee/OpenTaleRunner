@@ -3,7 +3,7 @@ import { useCharacterStore } from '../../stores/characterStore';
 import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../types/character';
 import type { Attributes, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
-import { ClassSkillTreeView } from './CharacterPanel/ClassSkillTreeView';
+import { SkillsSection } from './CharacterPanel/SkillsSection';
 
 const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤️', INT: '🧠', WIS: '👁', CHA: '👑' };
 
@@ -102,22 +102,8 @@ export function CharacterPanel() {
         </div>
       </div>
 
-      {/* v0.5.2 — Class Skill Tree (only when classId is set) */}
-      <ClassSkillTreeView />
-
-      {/* Skills */}
-      {character.skills.length > 0 && (
-        <div>
-          <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">技能</div>
-          <div className="flex flex-wrap gap-1">
-            {character.skills.map((s) => (
-              <span key={s.id} className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/15 text-indigo-300/80" title={s.description}>
-                {s.name} <span className="text-indigo-500/60">Lv.{s.level}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* v0.5.14 — SkillsSection 合并 3 种 chip (origin蓝/learned绿/available黄) */}
+      <SkillsSection />
 
       {/* Equipment */}
       <div>
