@@ -67,28 +67,39 @@ Zustand store, supports `getState()` for use outside React:
 | `addHistory` | `(entry: HistoryEntry) => void` | Append history entry (retains most recent 10) |
 | `setLastActionTime` | `(time: string) => void` | Record last action time |
 
-### 2.3 Six-Step Creation Wizard
+### 2.3 Seven-Step Creation Wizard (v0.5.14 reordered)
 
 ```
 Step 1: Choose starting village
   └─ Select from 12 starting villages (Royal Plains region)
 
-Step 2: PM-guided backstory
-  └─ GM (LLM) generates a character origin narrative based on the chosen village
+Step 2: Name + Appearance      (v0.5.14 newly independent)
+  └─ Player input or AI auto-generate (handleAutoGenerateName)
 
 Step 3: Attribute allocation
   └─ Base 10 + freely allocated points → six attributes (3-18)
 
-Step 4: Skill generation
+Step 4: Class selection        (v0.5.14 moved here)
+  └─ One of 4 classes: Warrior / Cleric / Mage / Thief
+  └─ Immediately grants T1 node (pick 1 of 3)
+  └─ After attributes, so backstory/skills prompts can use class + attrs
+
+Step 5: PM-guided backstory    (v0.5.14 moved here, uses Step 3+4 data)
+  └─ GM (LLM) generates character origin narrative from
+     village + class + T1 node + 6 attributes
+
+Step 6: Skill generation
   └─ GM assigns initial skills based on backstory (type='background')
 
-Step 5: Initial equipment
+Step 7: Initial equipment → enter world  (v0.5.14 removed separate review,
   └─ GM grants initial weapons/armor/items based on origin
-
-Step 6: Enter the world
   └─ Character data written to characterStore + characterListStore
   └─ Uploaded to server POST /api/v1/characters/create
   └─ PM engine called to generate the first scene
+
+Note: v0.5.14 prompt upgrade — all 4 LLM calls (backstory/skills/equipment/
+  name-appearance) inject class context (classId + T1 node name) + 6 attributes,
+  so generated content matches the chosen class identity.
 ```
 
 ### 2.4 Status System

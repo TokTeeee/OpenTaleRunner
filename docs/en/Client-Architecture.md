@@ -346,7 +346,7 @@ Sync results uniformly land in: `worldStore.currentWorldDay`, `regions`, `worldC
 
 | Component | File | Primary Responsibility | Key State |
 |------|------|----------|----------|
-| Character panel | `client/src/components/panels/CharacterPanel.tsx` | Displays current character's attributes, skills, equipment, HP, vitality, reputation, etc. | `characterStore` |
+| Character panel | `client/src/components/panels/CharacterPanel.tsx` | Displays current character's attributes, skills, equipment, HP, vitality, reputation, etc. (v0.5.14: clickable class in header, attribute radar compressed to 140×100, skills merged as 3-color chips, secondary sections collapsible) | `characterStore` |
 | Social panel | `client/src/components/panels/SocialPanel.tsx` | Displays known NPCs, relationship levels, details, and quick interactions | `npcStore` |
 | Party panel | `client/src/components/panels/PartyPanel.tsx` | Displays party members, loyalty, ability summaries, and leave/upgrade info | `partyStore` |
 | Environment panel | `client/src/components/panels/EnvironmentInfo.tsx` | Displays location, time, weather, terrain, nearby players, map, and world info | `gameStore`, `worldStore`, `SyncServices` |
@@ -369,7 +369,7 @@ Sync results uniformly land in: `worldStore.currentWorldDay`, `regions`, `worldC
 
 | Component | File | Primary Responsibility | Key State |
 |------|------|----------|----------|
-| Character creation wizard | `client/src/components/modals/CharacterCreationWizard.tsx` | Completes origin, background, attributes, skills, equipment, and confirmation flow; compatible with solo and multiplayer character preparation | `settingsStore`, `storybook runtime` |
+| Character creation wizard | `client/src/components/modals/CharacterCreationWizard.tsx` | 7-step creation flow (v0.5.14 reorder: village→name+appearance→attributes→class→backstory→skills→equipment); compatible with solo and multiplayer character preparation | `settingsStore`, `storybook runtime` |
 | Settings modal | `client/src/components/modals/SettingsModal.tsx` | Manages LLM, TTS, STT, image generation, server, and game toggle configuration | `settingsStore`, `uiStore` |
 | Save/Load modal | `client/src/components/modals/SaveLoadModal.tsx` | Manages solo character import, export, deletion, and loading | `characterListStore` |
 | Backpack modal | `client/src/components/modals/BackpackModal.tsx` | Manages item viewing, equipping, using, discarding, and history display | `characterStore`, `usePMEngine` |
