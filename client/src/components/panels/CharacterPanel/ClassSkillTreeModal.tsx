@@ -15,6 +15,7 @@
  *     所以 12 节点从 Lv.1 起全可学, 详情面板展示 description + effect。
  */
 import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getClass } from '../../../data/classes';
 import type { ClassNode, ClassNodeEffect } from '../../../types/class';
 
@@ -64,7 +65,11 @@ export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes }: 
   const learnedSet = new Set(learnedNodes);
   const tierMax = nodes.reduce((m, n) => Math.max(m, n.tier), 1);
 
-  return (
+  // v0.5.14-fix: 用 createPortal 渲染到 document.body
+  // 父级 CharacterPanel 有 animate-in class (含 transform: translateY), 会创建新的
+  // containing block, 导致 position:fixed 的 Modal 被定位到 panel 内, 位置异常且
+  // 关闭按钮可能不可达. Portal 逃出 panel 的 stacking context.
+  return createPortal(
     <div
       data-testid="class-skill-tree-modal"
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
@@ -169,6 +174,7 @@ export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes }: 
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

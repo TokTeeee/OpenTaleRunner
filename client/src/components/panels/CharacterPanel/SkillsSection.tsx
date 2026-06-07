@@ -1,7 +1,7 @@
 import { useCharacterStore } from '../../../stores/characterStore';
 import { getClass } from '../../../data/classes';
 
-type ChipType = 'origin' | 'classlearned' | 'classavailable';
+type ChipType = 'origin' | 'classlearned';
 
 type SkillChip = {
   key: string;
@@ -12,16 +12,15 @@ type SkillChip = {
 const TYPE_STYLES: Record<ChipType, string> = {
   origin: 'bg-indigo-500/10 border border-indigo-500/20 text-indigo-300',
   classlearned: 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-300',
-  classavailable: 'bg-amber-500/10 border border-amber-500/20 text-amber-300',
 };
 
 /**
  * v0.5.14: 合并技能区
  * - 蓝色 (origin) = 出身技能 (character.skills)
  * - 绿色 (classlearned) = 职业已学节点 (character.classSkills)
- * - 黄色 (classavailable) = 职业可学但未选节点
  *
- * 注: 现有 ClassNode 没有 unlockedByLevel 字段, 所有 12 节点都默认可学 (Lv.1 全开)
+ * v0.5.14-fix: 移除"可学未学"黄色 chip — 用户要求只显示已学习技能.
+ *              完整 12 节点技能树通过 ClassSkillTreeModal 查看.
  */
 export function SkillsSection() {
   const character = useCharacterStore((s) => s.character);
@@ -38,15 +37,11 @@ export function SkillsSection() {
     });
   }
 
-  // 2. 职业相关
+  // 2. 职业已学节点 (classlearned) — 绿
   const classDef = character.classId ? getClass(character.classId) : null;
   if (classDef) {
     const nodes = (classDef.nodes ?? []) as Array<{ id: string; tier: number; slot: number; name: string }>;
-    // 已学节点 ID 列表 (从 ClassSkillNode[] 提取 nodeId)
     const learnedIds = (character.classSkills ?? []).map((n) => n.nodeId);
-    const learnedSet = new Set(learnedIds);
-
-    // 2a. 已学 (classlearned) — 绿
     for (const nodeId of learnedIds) {
       const node = nodes.find((n) => n.id === nodeId);
       if (node) {
@@ -56,18 +51,6 @@ export function SkillsSection() {
           label: `T${node.tier}·${node.slot} ${node.name}`,
         });
       }
-    }
-
-    // 2b. 可学未选 (classavailable) — 黄 (按 tier 升序)
-    const available = nodes
-      .filter((n) => !learnedSet.has(n.id))
-      .sort((a, b) => a.tier - b.tier || a.slot - b.slot);
-    for (const node of available) {
-      chips.push({
-        key: `avail_${node.id}`,
-        type: 'classavailable',
-        label: `T${node.tier}·${node.slot} ${node.name}`,
-      });
     }
   }
 
@@ -80,7 +63,7 @@ export function SkillsSection() {
         {chips.map((c) => (
           <span
             key={c.key}
-            data-testid={`skill-chip-${c.type}-${c.key.replace(/^(origin|learned|avail)_/, '')}`}
+            data-testid={`skill-chip-${c.type}-${c.key.replace(/^(origin|learned)_/, '')}`}
             className={`text-[10px] px-2 py-0.5 rounded-md ${TYPE_STYLES[c.type]}`}
             title={c.label}
           >
