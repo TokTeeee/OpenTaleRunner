@@ -38,6 +38,7 @@ import {
   isCombatAction,
 } from './shared';
 import { syncRoundResultMessages, syncNarrativePartyMembers } from './useMultiplayerSync';
+import { useDiceJudge } from './useDiceJudge';
 
 interface ActionSubmitDeps {
   initPM: () => Promise<void>;
@@ -46,41 +47,6 @@ interface ActionSubmitDeps {
   applySceneLocation: (rawLocation: string, description: string) => void;
   buildCharacterRuntimeSnapshot: (baseChar: Character) => Character;
   setWaitingForPM: (v: boolean) => void;
-}
-
-function buildMultiplayerDiceResult(action: string, char: Character | null): Record<string, unknown> | null {
-  if (!char) return null;
-  const game = useGameStore.getState();
-  const absurdity = estimateAbsurdity(action, char);
-  if (absurdity <= 2) {
-    return {
-      auto: true,
-      outcome: 'success',
-      reason: '无需检定',
-      difficultyLC: absurdityToLC(absurdity),
-    };
-  }
-
-  const bestSkill = findBestSkill(action, char);
-  const judgeParams: JudgeParams = {
-    absurdityLevel: absurdity,
-    difficultyLC: absurdityToLC(absurdity),
-    reason: '多人模式本地判定',
-    relevantSkill: bestSkill?.name || null,
-    relevantAttribute: (bestSkill?.relatedAttribute as AttributeName) || 'WIS',
-  };
-
-  return _judgeSystem.evaluate(judgeParams, char, {
-    worldDay: game.currentDay,
-    region: game.currentRegion,
-    subRegion: game.currentSubRegion,
-    coordinates: game.coordinates,
-    terrain: game.terrain,
-    weather: game.weather,
-    factions: [],
-    recentEvents: [],
-    remainingActionPoints: 0,
-  }) as unknown as Record<string, unknown>;
 }
 
 function detectNPCInteraction(actionText: string, repChanges: Record<string, number>) {
@@ -123,6 +89,9 @@ export function useActionSubmit(deps: ActionSubmitDeps) {
     setWaitingForPM,
   } = deps;
 
+  // v0.5.11: 骰子/检定抽象已抽到 useDiceJudge sub-hook
+  const { judgeAction } = useDiceJudge();
+
   const submitAction = useCallback(async (action: string) => {
     if (useMultiplayerStore.getState().gameMode === 'multiplayer' && useMultiplayerStore.getState().roomId) {
       const multiplayer = useMultiplayerStore.getState();
@@ -134,11 +103,12 @@ export function useActionSubmit(deps: ActionSubmitDeps) {
 
       clearError();
       try {
-        const diceResult = buildMultiplayerDiceResult(trimmedAction, useCharacterStore.getState().character);
+        const diceResult = judgeAction(trimmedAction, useCharacterStore.getState().character);
         if (diceResult && !('auto' in diceResult)) {
           const game = useGameStore.getState();
           game.setDiceResult(diceResult as unknown as import('../../types/game').DiceResult);
         }
+        const diceResultWire = diceResult as unknown as Record<string, unknown> | undefined;
 
         const game = useGameStore.getState();
         game.upsertMessage({
@@ -164,15 +134,15 @@ export function useActionSubmit(deps: ActionSubmitDeps) {
           playersActed: nextPlayersActed,
           pendingPlayers: inGamePlayerIds.filter((playerId) => !nextPlayersActed.includes(playerId)),
           actions: { ...multiplayer.currentActions, [currentPlayerId]: trimmedAction },
-          diceResults: diceResult
-            ? { ...multiplayer.currentDiceResults, [currentPlayerId]: diceResult }
+          diceResults: diceResultWire
+            ? { ...multiplayer.currentDiceResults, [currentPlayerId]: diceResultWire }
             : multiplayer.currentDiceResults,
           roundStartTime: multiplayer.roundStartTime || new Date().toISOString(),
           timeoutAt: multiplayer.timeoutAt,
           latestRoundResult: multiplayer.latestRoundResult,
         });
 
-        const result = await submitMultiplayerRoundAction(roomId, sanitizePromptInput(trimmedAction), diceResult ?? undefined);
+        const result = await submitMultiplayerRoundAction(roomId, sanitizePromptInput(trimmedAction), diceResultWire);
         if (result.roundResult) {
           multiplayer.handleRoundResult(result.roundResult);
           syncRoundResultMessages(roomId, result.roundResult, multiplayer.players);
@@ -464,7 +434,7 @@ export function useActionSubmit(deps: ActionSubmitDeps) {
     } catch (err) {
       handlePMError(err, '动作处理');
     }
-  }, [applySceneLocation, buildCharacterRuntimeSnapshot, clearError, handlePMError, initPM, setWaitingForPM]);
+  }, [applySceneLocation, buildCharacterRuntimeSnapshot, clearError, handlePMError, initPM, judgeAction, setWaitingForPM]);
 
   const skipAction = useCallback(async () => {
     const multiplayer = useMultiplayerStore.getState();
