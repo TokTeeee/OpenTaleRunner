@@ -20,16 +20,17 @@ export function applyAttributes(
   }
 }
 
-function applyAttributeChanges(changes: Record<string, number>): void {
+function applyAttributeChanges(changes: Partial<Record<string, number>>): void {
   const char = useCharacterStore.getState().character;
   if (!char) return;
-  const attrs = { ...char.attributes };
+  const attrs: Record<string, number> = { ...char.attributes };
   for (const [key, value] of Object.entries(changes)) {
+    if (value == null) continue;
     if (key in attrs && typeof value === 'number') {
-      (attrs as Record<string, number>)[key] = Math.max(3, Math.min(18, (attrs as Record<string, number>)[key] + value));
+      attrs[key] = Math.max(3, Math.min(18, attrs[key] + value));
     }
   }
-  useCharacterStore.getState().updateAttributes(attrs);
+  useCharacterStore.getState().updateAttributes(attrs as never);
 }
 
 function applyIdentityChanges(identity: { name?: string; appearance?: string; background?: string }): void {
