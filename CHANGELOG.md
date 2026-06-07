@@ -1,5 +1,63 @@
 # Changelog
 
+## v0.5.14 — 2026-06-07 (character creation + CharacterPanel 体验修订)
+
+基于实际体验反馈, 4 处 UX 修订, Wizard 7 步重排 + CharacterPanel 紧凑化 + 新 2 组件 + 4 prompt 升级.
+
+### What's in this release
+
+**Wizard 7 步重排 (CharacterCreationWizard.tsx)**
+
+- Step 2 独立 "名字+外貌" (从原 review 抽出) — 玩家可手动输入或 AI 自动生成
+- Step 4 改 "职业" (原 Step 7, 现在在属性后, 利于 PM 用职业+属性生成背景)
+- Step 5 改 "背景" (原 Step 2, 用 Step 3+4 收集到的 classId/attrs)
+- 删除原 Step 6 (独立 review 页), Step 7 装备完成后直接 finalize
+
+**4 prompt 升级 (background / skills / equipment / name-appearance)**
+
+所有 4 个 LLM 调用都注入职业上下文 (`classId` + `T1 节点名`) + 6 属性, 使生成内容贴合职业身份:
+- 背景 prompt: 多了 `classId`, `classTier1Node`, 6 项属性
+- 技能 prompt: 同上
+- 装备 prompt: 同上
+- 名字+外貌 prompt: 同上
+
+辅助函数 `buildClassContext()` 在所有 prompt 构造处复用, 统一返回 "职业: X\nT1 节点: Y" 或 "无职业".
+
+**CharacterPanel 重构 (A+B 紧凑布局)**
+
+- 头部: 改名 `character.race` → `种族：X，职业：Y [可点击▼ / 无职业灰]`
+- 属性: 雷达 150×130 → 140×100 (RADIUS 55→32, CX/CY 重新居中, hover 圆 7→5, font 10/8 → 9/7)
+- 属性文字: 改为 6 行紧凑 chip (bg-white/5 + px-2 py-1 + font-semibold)
+- 技能: 删独立 `ClassSkillTreeView` (12 节点大网格), 新 `SkillsSection` 合并 3 种 chip
+  - 蓝 (`origin`) = 出身技能 (character.skills)
+  - 绿 (`classlearned`) = 职业已学节点 (character.classSkills)
+  - 黄 (`classavailable`) = 职业可学但未选 (ClassNode 全部 12 节点, 无 unlockedByLevel 字段)
+- 折叠: 声望/装备/货币/背包 改 `<details>` 收起 (ReputationSection 移除 useState, 用原生折叠)
+
+**新组件 (2 个)**
+
+- `ClassSkillTreeModal` — 全屏 12 节点 3 列 × 4 行大网格, 节点详情面板 (description + effect 格式化), Esc 键 / 关闭 ✕ / 点击 overlay 关闭
+- `SkillsSection` — 3 色 chip 分类渲染 (origin/learned/available), 自动排序
+
+**删除 (1 个)**
+
+- `ClassSkillTreeView.tsx` (旧版 12 节点 inline 视图, 被 SkillsSection + Modal 替代)
+
+**测试 +19 (3 文件)**
+
+- `CharacterCreationWizard.test.tsx` 6 处 `initialStep={7}` → `{4}` (job 重排)
+- `SkillsSection.test.tsx` 6 个 (新) — 3 chip 分类
+- `ClassSkillTreeModal.test.tsx` 9 个 (新) — 12 节点 / 3 状态 / 关闭方式 (Esc/按钮/overlay) / 节点详情
+- `CharacterPanel_v051.test.tsx` 9 个 (新) — 头部职业 / 属性压缩 / 折叠次要 / Modal 触发
+
+### Validation
+
+- 97 files / 1006 tests pass (从 95/988 → 1006, +18)
+- lint 0 errors / 0 warnings
+- typecheck 0 errors
+
+---
+
 ## v0.5.13 — 2026-06-07 (applyConsequences 按业务域拆 5 + 1)
 
 `applyConsequences.ts` 184 → 47 行, 5 业务域独立文件, 错误隔离 + 新发现聚合.
