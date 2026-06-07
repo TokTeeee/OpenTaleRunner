@@ -1,29 +1,52 @@
 import { useState } from 'react';
 import { useCharacterStore } from '../../stores/characterStore';
 import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../types/character';
-import type { Attributes, Reputation } from '../../types/character';
+import type { Attributes, Character, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
 import { SkillsSection } from './CharacterPanel/SkillsSection';
+import { ClassSkillTreeModal } from './CharacterPanel/ClassSkillTreeModal';
+import { getClass } from '../../data/classes';  // v0.5.14 (用于头部职业名)
 
 const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤️', INT: '🧠', WIS: '👁', CHA: '👑' };
 
 export function CharacterPanel() {
   const character = useCharacterStore((s) => s.character);
+  const [classModalOpen, setClassModalOpen] = useState(false);  // v0.5.14
   if (!character) return <div className="p-4 text-gray-600 text-xs text-center">尚未创建角色</div>;
 
   const attrs = character.attributes;
   const hpPct = (character.hp / character.maxHp) * 100;
+  const classDef = character.classId ? getClass(character.classId) : null;  // v0.5.14
 
   return (
     <div className="p-3 space-y-3 animate-in overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
-      {/* Avatar + Name */}
+      {/* Avatar + Name (v0.5.14: 职业可点击) */}
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500/30 to-purple-500/30 border border-indigo-400/20 flex items-center justify-center text-lg font-bold text-indigo-300 font-serif shrink-0">
           {character.name[0]}
         </div>
         <div className="min-w-0">
           <div className="text-sm font-semibold text-gray-200 truncate">{character.name}</div>
-          <div className="text-[11px] text-gray-500">{character.race}</div>
+          <div className="text-[11px] text-gray-500">
+            种族：{character.race}，
+            {classDef ? (
+              <button
+                onClick={() => setClassModalOpen(true)}
+                data-testid="panel-class-button"
+                data-clickable="true"
+                className="text-amber-400 underline cursor-pointer hover:text-amber-300 ml-0.5"
+              >
+                职业：{classDef.name} ▼
+              </button>
+            ) : (
+              <span
+                data-testid="panel-class-none"
+                className="text-gray-600 ml-0.5"
+              >
+                职业：无职业
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -88,15 +111,14 @@ export function CharacterPanel() {
       </div>
       )}
 
-      {/* Attributes */}
-      <div>
-        <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">属性</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+      {/* Attributes (v0.5.14: 6 行紧凑 chip) */}
+      <div className="mt-1.5">
+        <div className="grid grid-cols-2 gap-1" data-testid="attribute-grid">
           {Object.entries(attrs).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1.5">
-              <span className="text-[11px] w-4 text-center">{ATTR_ICONS[k] || '●'}</span>
-              <span className="text-[10px] text-gray-400 w-8">{ATTRIBUTE_LABELS[k as keyof typeof ATTRIBUTE_LABELS]}</span>
-              <span className="text-[10px] text-gray-300 font-mono ml-auto">{v}</span>
+            <div key={k} className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px]">
+              <span className="w-4 text-center">{ATTR_ICONS[k] || '●'}</span>
+              <span className="text-gray-400 w-8">{ATTRIBUTE_LABELS[k as keyof typeof ATTRIBUTE_LABELS]}</span>
+              <span className="text-gray-200 font-mono ml-auto font-semibold">{v}</span>
             </div>
           ))}
         </div>
@@ -105,35 +127,43 @@ export function CharacterPanel() {
       {/* v0.5.14 — SkillsSection 合并 3 种 chip (origin蓝/learned绿/available黄) */}
       <SkillsSection />
 
-      {/* Equipment */}
-      <div>
-        <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">装备</div>
-        <div className="text-[10px] text-gray-400">🗡 {character.inventory.equipped.weapon?.name ?? '空手'} · 🛡 {character.inventory.equipped.armor?.name ?? '布衣'}</div>
-      </div>
+      {/* Equipment (v0.5.14: 折叠) */}
+      <details data-testid="panel-equipment-details" className="text-[10px]">
+        <summary className="cursor-pointer text-gray-600 uppercase tracking-wider hover:text-gray-400 list-none">
+          🗡 装备
+        </summary>
+        <div className="mt-1 text-gray-400">
+          🗡 {character.inventory.equipped.weapon?.name ?? '空手'} · 🛡 {character.inventory.equipped.armor?.name ?? '布衣'}
+        </div>
+      </details>
 
-      {/* Currency */}
+      {/* Currency (v0.5.14: 折叠) */}
       {character.inventory?.currency && (
-        <div>
-          <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">💰 货币</div>
-          <div className="flex gap-3 text-[10px]">
+        <details data-testid="panel-currency-details" className="text-[10px]">
+          <summary className="cursor-pointer text-gray-600 uppercase tracking-wider hover:text-gray-400 list-none">
+            💰 货币
+          </summary>
+          <div className="mt-1 flex gap-3">
             <span className="text-amber-400">{character.inventory.currency.gold}🪙</span>
             <span className="text-gray-400">{character.inventory.currency.silver}⚪</span>
             <span className="text-amber-700">{character.inventory.currency.copper}🟤</span>
           </div>
-        </div>
+        </details>
       )}
 
-      {/* Backpack summary */}
+      {/* Backpack summary (v0.5.14: 折叠) */}
       {character.inventory?.backpack?.length > 0 && (
-        <div>
-          <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">🎒 背包 ({character.inventory.backpack.length}件)</div>
-          <div className="flex flex-wrap gap-1">
+        <details data-testid="panel-backpack-details" className="text-[10px]">
+          <summary className="cursor-pointer text-gray-600 uppercase tracking-wider hover:text-gray-400 list-none">
+            🎒 背包 ({character.inventory.backpack.length}件)
+          </summary>
+          <div className="mt-1 flex flex-wrap gap-1">
             {character.inventory.backpack.slice(0, 6).map((item, i) => (
               <ItemChip key={i} item={item} variant="minimal" onClick={() => {}} />
             ))}
             {character.inventory.backpack.length > 6 && <span className="text-[9px] text-gray-600">+{character.inventory.backpack.length - 6}</span>}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Reputation — collapsible */}
@@ -146,12 +176,21 @@ export function CharacterPanel() {
           {character.conditions.map((c, i) => <div key={i} className="text-[10px] text-rose-400/80">{c}</div>)}
         </div>
       )}
+
+      {/* v0.5.14 — 职业技能树 Modal (头部按钮触发) */}
+      <ClassSkillTreeModal
+        classId={character.classId ?? ''}
+        isOpen={classModalOpen}
+        onClose={() => setClassModalOpen(false)}
+        learnedNodes={(character.classSkills ?? []).map((n) => n.nodeId)}
+        currentLevel={character.level ?? 1}
+      />
     </div>
   );
 }
 
 function ReputationSection({ rep }: { rep: Reputation }) {
-  const [open, setOpen] = useState(false);
+  // v0.5.14: 改为 <details> 折叠, 不再用 useState
   const goodPct = Math.abs(rep.goodness);
   const isGood = rep.goodness >= 0;
   const lawfulPct = Math.abs(rep.lawfulness);
@@ -165,13 +204,11 @@ function ReputationSection({ rep }: { rep: Reputation }) {
   const dotY = compassCy + (compassY / 100) * compassR;
 
   return (
-    <div>
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between text-[10px] text-gray-600 uppercase tracking-wider mb-1 hover:text-gray-400 transition-colors">
-        <span>📊 声望</span>
-        <span className="text-[9px]">{open ? '▲' : '▼'}</span>
-      </button>
-      {open && (
-        <div className="space-y-2 animate-in">
+    <details data-testid="panel-reputation-details" className="text-[10px]">
+      <summary className="cursor-pointer text-gray-600 uppercase tracking-wider hover:text-gray-400 list-none">
+        📊 声望
+      </summary>
+      <div className="space-y-2 mt-1 animate-in">
           {/* Compass — 2D Good/Evil × Lawful/Chaotic */}
           <div className="flex justify-center">
             <svg width="80" height="80" viewBox="0 0 80 80">
@@ -234,15 +271,14 @@ function ReputationSection({ rep }: { rep: Reputation }) {
             </div>
           )}
         </div>
-      )}
-    </div>
+    </details>
   );
 }
 
 function AttributeRadar({ attributes }: { attributes: Attributes }) {
-  const RADIUS = 55;
-  const CX = 75;
-  const CY = 60;
+  const RADIUS = 32;   // v0.5.14: 55 → 32 (适配 140×100 紧凑布局)
+  const CX = 70;       // 居中
+  const CY = 50;       // 居中
   const MAX = 18;
   const ATTRS = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'] as const;
   const LABELS: Record<string, string> = { STR: '力量', DEX: '敏捷', CON: '体质', INT: '智力', WIS: '感知', CHA: '魅力' };
@@ -260,10 +296,10 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
 
   return (
-    <div>
+    <div data-testid="attribute-radar">
       <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">属性</div>
       <div className="flex justify-center">
-        <svg width="150" height="130" viewBox="0 0 150 130">
+        <svg width="140" height="100" viewBox="0 0 140 100">
           {/* Grid */}
           {gridLevels.map(level => {
             const r = level * RADIUS;
@@ -295,7 +331,7 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
             return (
               <g key={i}>
                 <circle
-                  cx={p.x} cy={p.y} r={isHovered ? 7 : 3.5}
+                  cx={p.x} cy={p.y} r={isHovered ? 5 : 2.5}
                   fill={COLORS[i]} stroke="rgba(0,0,0,0.3)" strokeWidth="0.5"
                   className="transition-all duration-200 cursor-pointer"
                   style={{ filter: isHovered ? `drop-shadow(0 0 5px ${COLORS[i]}80)` : 'none' }}
@@ -303,7 +339,7 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
                   onMouseLeave={() => setHovered(null)}
                 />
                 {isHovered && (
-                  <text x={p.x} y={p.y - 10} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">
+                  <text x={p.x} y={p.y - 8} textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold">
                     {LABELS[p.attr]}: {p.val}
                   </text>
                 )}
@@ -312,11 +348,11 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
           })}
           {/* Labels + scores */}
           {points.map((p, i) => {
-            const lr = RADIUS + 14;
+            const lr = RADIUS + 10;
             const lx = CX + lr * Math.cos(p.angle);
             const ly = CY + lr * Math.sin(p.angle) + 3;
             return (
-              <text key={i} x={lx} y={ly} textAnchor="middle" fill="#9ca3af" fontSize="8">
+              <text key={i} x={lx} y={ly} textAnchor="middle" fill="#9ca3af" fontSize="7">
                 {LABELS[p.attr]} {p.val}
               </text>
             );
@@ -330,8 +366,6 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
 // ---------------------------------------------------------------------------
 // v0.5.1 — LevelBar
 // ---------------------------------------------------------------------------
-
-import type { Character } from '../../types/character';
 
 function LevelBar({ character }: { character: Character }) {
   const level = character.level ?? 1;
