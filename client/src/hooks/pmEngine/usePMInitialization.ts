@@ -3,11 +3,10 @@ import { PMEngine } from '../../services/engine/PMEngine';
 import { useWorldStore } from '../../stores/worldStore';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { useNPCStore } from '../../stores/npcStore';
-import { eventBus } from '../../services/event/EventBus';
-import { EVENTS } from '../../services/event/events';
 import { getWorldEra, getWorldLore, hydrateStorybook } from '../../services/storybook/runtime';
 import { logger } from '../../utils/logger';
 import { getPmEngine, setPmEngine, _chronicleRecorder, setPmErrorShared } from './shared';
+import { useErrorRecovery } from './useErrorRecovery';
 import type { LLMProviderType } from '../../types/llm';
 import type { Character } from '../../types/character';
 
@@ -84,16 +83,8 @@ export function usePMInitialization(
     }
   }, [getLLMConfig, getStoreStates]);
 
-  const handlePMError = useCallback((err: unknown, context: string) => {
-    const msg = (err as Error).message || String(err);
-    logger.error('PM', `${context}失败: ${msg}`);
-    setPmErrorShared(`${context} 失败: ${msg.slice(0, 80)}`);
-    eventBus.emit(EVENTS.PM_ERROR, { context, message: msg });
-  }, []);
-
-  const clearError = useCallback(() => {
-    setPmErrorShared(null);
-  }, []);
+  // v0.5.11: 错误恢复抽到 useErrorRecovery
+  const { handlePMError, clearError } = useErrorRecovery();
 
   return { initPM, handlePMError, clearError };
 }
