@@ -5,6 +5,7 @@ import { useCharacterStore } from '../../stores/characterStore';
 import { useCodexStore } from '../../stores/codexStore';
 import { useItemRegistryStore } from '../../stores/itemRegistryStore';
 import { generateLootAffixes } from './lootAffixes';
+import { buildItemFromGained, syncBackpackFromRegistry, findInRegistryByCharacter } from './helpers';
 import type { RNG } from '../../data/affixPool';
 
 /**
@@ -12,111 +13,6 @@ import type { RNG } from '../../data/affixPool';
  * 本文件所有物品 mutation 都走 itemRegistry.register/transfer/destroy/patch,
  * 然后调 syncBackpackFromRegistry 刷新 legacy 视图, 保持向后兼容.
  */
-
-function buildItemFromGained(gained: ItemGainedData, oldItem: Item | null, now: string): Item {
-  const history: ItemHistoryEntry[] = oldItem ? [
-    ...(oldItem.history || []),
-    {
-      timestamp: now,
-      event: 'upgraded',
-      description: gained.description || `升级为${gained.name}`,
-      oldName: oldItem.name,
-      oldDescription: oldItem.description,
-    },
-  ] : [{
-    timestamp: now,
-    event: 'acquired',
-    description: gained.description || `获得了${gained.name}`,
-  }];
-
-  // 升级时保留原 itemId 以维持库存去重/装备引用的稳定性；
-  // 新物品才生成新 id。replacesItemId 仅作为调用方查找旧物品的索引键。
-  const itemId = oldItem?.itemId
-    || (!gained.replacesItemId ? `item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}` : gained.replacesItemId);
-
-  return {
-    itemId,
-    name: gained.name,
-    category: (gained.category as ItemCategory) || 'consumable',
-    subCategory: gained.subCategory || '',
-    quality: (gained.quality as ItemQuality) || '普通',
-    quantity: gained.quantity || 1,
-    description: gained.description || '',
-    effects: (gained.effects || []).map((e, i) => ({
-      id: `eff_${Date.now()}_${i}`,
-      type: (e.type as ItemEffect['type']) || 'special',
-      value: e.value || 0,
-      description: e.description || '',
-    })),
-    value: 0,
-    durability: oldItem?.durability,
-    maxDurability: oldItem?.maxDurability,
-    history,
-    createdAt: oldItem?.createdAt || now,
-    source: oldItem?.source || '',
-    equipped: oldItem?.equipped,
-    equipSlot: oldItem?.equipSlot,
-    canBeEquipped: gained.category === 'weapon' || gained.category === 'armor' || gained.category === 'accessory',
-    canBeUsed: gained.category === 'consumable',
-  };
-}
-
-/**
- * 从 itemRegistry 重新拼装 character 的背包视图.
- * 旧版 UI (CharacterPanel/BackpackModal) 仍消费 char.inventory.backpack,
- * 这里作为派生层保持兼容, 真正的物品真相在 itemRegistry.
- */
-function syncBackpackFromRegistry(characterId: string): void {
-  const charStore = useCharacterStore.getState();
-  const char = charStore.character;
-  if (!char) return;
-  const registry = useItemRegistryStore.getState();
-  const items = registry.byHolder({ kind: 'character', refId: characterId })
-    .filter((it) => it.holder !== null)
-    .map((it) => worldItemToLegacyView(it));
-  charStore.updateInventory({ ...char.inventory, backpack: items });
-}
-
-/**
- * WorldItem → 旧版 Item 视图裁剪.
- * 旧 UI 不需要 holder/spawnInfo/updatedAt 等字段, 但 itemId/effects/history 必须保留.
- */
-function worldItemToLegacyView(w: WorldItem): Item {
-  return {
-    itemId: w.itemId,
-    name: w.name,
-    category: w.category,
-    subCategory: w.subCategory || '',
-    quality: w.quality,
-    quantity: w.quantity,
-    description: w.description,
-    effects: w.effects,
-    value: w.value,
-    durability: w.durability?.current,
-    maxDurability: w.durability?.max ?? w.maxDurability,
-    history: w.history,
-    createdAt: w.createdAt,
-    source: w.source,
-    equipped: w.equipped,
-    equipSlot: w.equipSlot,
-    canBeEquipped: w.canBeEquipped,
-    canBeUsed: w.canBeUsed,
-    usePrompt: w.usePrompt,
-  };
-}
-
-/** 在 itemRegistry 中按 itemId/name 查找角色当前持有的物品 */
-function findInRegistryByCharacter(characterId: string, itemId?: string, name?: string): WorldItem | undefined {
-  const registry = useItemRegistryStore.getState();
-  const items = registry.byHolder({ kind: 'character', refId: characterId });
-  if (itemId) {
-    return items.find((it) => it.itemId === itemId);
-  }
-  if (name) {
-    return items.find((it) => it.name === name);
-  }
-  return undefined;
-}
 
 export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): { newDiscoveries: WorldItem[] } | undefined {
   const charStore = useCharacterStore.getState();
