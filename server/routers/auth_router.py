@@ -13,10 +13,11 @@ from services.token_blacklist import blacklist
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
-def _make_token(player_id: str) -> str:
+def _make_token(player_id: str, username: str = "") -> str:
     now = datetime.now(timezone.utc)
     payload = {
         "sub": player_id,
+        "username": username,
         "iat": now.timestamp(),
         "exp": now + timedelta(hours=settings.jwt_expire_hours),
         "jti": uuid.uuid4().hex,
@@ -34,7 +35,7 @@ async def register(req: RegisterRequest, repo=Depends(get_player_repo)):
         player = await repo.register(req.username, req.password)
     except Exception:
         raise HTTPException(409, "Username already exists")
-    token = _make_token(player["player_id"])
+    token = _make_token(player["player_id"], player["username"])
     return TokenResponse(token=token, player_id=player["player_id"], username=player["username"])
 
 
@@ -43,7 +44,7 @@ async def login(req: LoginRequest, repo=Depends(get_player_repo)):
     player = await repo.login(req.username, req.password)
     if not player:
         raise HTTPException(401, "Invalid credentials")
-    token = _make_token(player["id"])
+    token = _make_token(player["id"], player["username"])
     return TokenResponse(token=token, player_id=player["id"], username=player["username"])
 
 
@@ -59,8 +60,17 @@ async def refresh(
     except Exception:
         exp = datetime.now(timezone.utc).timestamp() + 3600
     blacklist.revoke(_token_digest(old_token), float(exp))
-    token = _make_token(player_id)
-    return TokenResponse(token=token, player_id=player_id, username="")
+    # 从 old_token 解出 username (v0.5.10 #7: refresh 保留 username claim)
+    old_username = ""
+    try:
+        old_payload = pyjwt.decode(
+            old_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+        )
+        old_username = old_payload.get("username", "")
+    except Exception:
+        pass
+    token = _make_token(player_id, old_username)
+    return TokenResponse(token=token, player_id=player_id, username=old_username)
 
 
 @router.post("/logout", response_model=LogoutResponse)

@@ -43,6 +43,7 @@ def pytest_configure(config):
 
     env = os.environ.copy()
     env.setdefault("SERVICE_JWT_SECRET", "pytest-test-secret")
+    env.setdefault("SERVICE_RATE_LIMIT", "9999")  # v0.5.10: 防止新加 test 触发 60/60s 限流
     env["SERVICE_PORT"] = str(PORT)
     env["SERVICE_DB_PATH"] = db_path
     env["SERVICE_DATA_DIR"] = str(SERVICE_DIR / "data")

@@ -9,7 +9,7 @@ from models.multiplayer import (
     RoomNotificationsResponse,
 )
 from services.multiplayer_service import MultiplayerService, RoomError
-from routers.deps import get_current_player
+from routers.deps import get_current_player, get_current_username
 
 router = APIRouter(prefix="/api/v1/multiplayer", tags=["multiplayer"])
 
@@ -51,6 +51,7 @@ def _room_to_response(room) -> dict:
 async def create_room(
     req: CreateRoomRequest,
     player_id: str = Depends(get_current_player),
+    username: str = Depends(get_current_username),
     service: MultiplayerService = Depends(get_mp_service),
 ):
     try:
@@ -59,7 +60,7 @@ async def create_room(
             config=req.config,
             mode=req.mode,
             inherit_data=req.inherit_data,
-            player_name=player_id,  # TODO: 从认证信息获取用户名
+            player_name=username,  # v0.5.10 #7: 从 JWT token 取 username
         )
         return _room_to_response(room)
     except RoomError as e:

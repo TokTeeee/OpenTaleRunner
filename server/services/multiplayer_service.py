@@ -75,6 +75,7 @@ class MultiplayerService:
         return room
 
     async def _create_new_room(self, room_id: str, host_id: str, config: RoomConfig, player_name: str) -> Room:
+        print(f"[DEBUG _create_new_room] room_id={room_id} host_id={host_id!r} player_name={player_name!r}", flush=True)
         state = RoomState(phase="waiting")
 
         # 保存房间
@@ -284,6 +285,7 @@ class MultiplayerService:
 
     @staticmethod
     def _build_session_dict(**kwargs) -> dict:
+        print(f"[DEBUG _build_session_dict] kwargs={kwargs}", flush=True)
         defaults = {
             "room_id": "",
             "player_id": "",

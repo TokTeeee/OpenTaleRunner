@@ -103,6 +103,15 @@ async def get_current_player(authorization: str = Header(None)) -> str:
     return payload.get("sub", "")
 
 
+async def get_current_username(authorization: str = Header(None)) -> str:
+    """v0.5.10 #7: 从 JWT token 解析 username, fallback 到 sub (player_id)."""
+    payload = await _verify_token(authorization)
+    username = payload.get("username", "")
+    if not username:
+        username = payload.get("sub", "")
+    return username
+
+
 async def get_optional_player(authorization: str | None = Header(default=None)) -> str | None:
     if not authorization or not authorization.startswith("Bearer "):
         return None
