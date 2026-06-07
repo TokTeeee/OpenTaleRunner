@@ -11,6 +11,9 @@ import { registerCombatTools } from './services/combat/combatTools'; // Combat T
 
 // 注册战斗工具 (幂等)
 registerCombatTools();
+// v0.5.12: 注册 inventory_search GM tool (backpack_full on-demand)
+import { registerInventorySearchTool } from './services/engine/inventorySearchTool';
+registerInventorySearchTool();
 import { useGameStore } from './stores/gameStore';
 import { useCharacterStore } from './stores/characterStore';
 import { useWorldStore } from './stores/worldStore';

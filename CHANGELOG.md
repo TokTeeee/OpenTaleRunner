@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.5.12 — 2026-06-07 (backpack_full on-demand: inventory_search GM tool)
+
+GM 调 `inventory_search` tool 按需查背包,代替一次性 inject。
+
+### What's in this release
+
+**QueryResolver: 暴露 `inventorySearch({ keyword, characterId? })`**
+
+公开 API, 大小写不敏感, 查 equipped 3 槽 + backpack, 返回结构化结果 (name / description / category / quality / quantity / slot / effects / durability).
+
+**`inventory_search` GM tool**
+
+新文件 `client/src/services/engine/inventorySearchTool.ts`:
+- `registerInventorySearchTool()` 幂等注册到 `ToolCallRegistry`
+- 校验入参: `keyword` 必填非空, `characterId` 可选 (默认当前角色)
+- 不抛错: 非法入参返 `{ ok: false, reason }`
+- App.tsx 顶层启动时注册 (与 `registerCombatTools` 一起)
+
+**测试 11 个 (2 文件)**
+
+- `tests/services/inventorySearch.test.ts` 6 个: keyword 匹配 / 无匹配 / 描述匹配 / 装备槽匹配 / 空 keyword / 大小写
+- `tests/services/inventorySearchTool.test.ts` 5 个: 注册+注销 / 幂等 / keyword 缺省 / 当前角色匹配 / 无角色时 reason
+
+### Validation
+
+- 89 files / 957 tests pass (从 87/946 +11)
+- lint 0 errors / 0 warnings
+- typecheck 0 errors
+
+---
+
 ## v0.5.11 — 2026-06-07 (useActionSubmit 拆 4 sub-hook)
 
 `useActionSubmit.ts` 拆 1 入口 + 4 sub-hook, 纯重构, 行为不变。
