@@ -160,6 +160,22 @@ export function CharacterCreationWizard({
   };
 
   // Step 1: Start background dialogue (with village assignment)
+  // v0.5.14: 构造 class 上下文 (4 个 prompt 复用)
+  // 返回: "职业: X\nT1 节点: Y" 或 "无职业" 或 "" (无 classId 无 classSkills)
+  const buildClassContext = (): string => {
+    if (!classId) {
+      return '职业: 无职业 (自由冒险者)';
+    }
+    const classDef = getClass(classId);
+    if (!classDef) {
+      return `职业: ${classId} (未知职业)`;
+    }
+    const t1NodeName = classSkills.length > 0
+      ? (classDef as any).nodes?.find((n: any) => n.nodeId === classSkills[0])?.name ?? '基础'
+      : '未选 T1 节点';
+    return `职业: ${classDef.name}\nT1 节点: ${t1NodeName}`;
+  };
+
   const startBgDialogue = async () => {
     const village = selectedVillage || birthLocations[Math.floor(Math.random() * Math.max(1, birthLocations.length))];
     if (!village) {
@@ -214,7 +230,10 @@ export function CharacterCreationWizard({
     const systemPrompt = promptBuilder.buildWorldLayer({
       worldLore: resolvedWorldLore,
     });
-    const prompt = `${systemPrompt}\n角色背景: ${background}\n属性: STR:${attributes.STR} DEX:${attributes.DEX} CON:${attributes.CON} INT:${attributes.INT} WIS:${attributes.WIS} CHA:${attributes.CHA}\n请根据这个角色的背景和属性，生成2-3个合理的出身技能。返回JSON数组：\n[{"name":"技能名","level":1-3,"description":"简短描述","relatedAttribute":"STR/DEX/CON/INT/WIS/CHA"}]`;
+    // v0.5.14: prompt 升级 — 带 classId + T1 节点 + 完整属性, 让 PM 知道职业+属性
+    const classContext = buildClassContext();
+    const attrSummary = `STR:${attributes.STR} DEX:${attributes.DEX} CON:${attributes.CON} INT:${attributes.INT} WIS:${attributes.WIS} CHA:${attributes.CHA}`;
+    const prompt = `${systemPrompt}\n角色背景: ${background}\n${classContext}\n属性: ${attrSummary}\n请根据这个角色的背景、职业倾向和属性，生成2-3个合理的出身技能。返回JSON数组：\n[{"name":"技能名","level":1-3,"description":"简短描述","relatedAttribute":"STR/DEX/CON/INT/WIS/CHA"}]`;
     const raw = await callPM(prompt, '');
     try {
       const json = JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0] || raw);
@@ -242,7 +261,9 @@ export function CharacterCreationWizard({
   // Step 5: Generate equipment
   const generateEquipment = async () => {
     const village = selectedVillage || { name: startInfo.subRegion };
-    const prompt = `角色背景: ${background}\n出生在${village.name}（${startRegionName}）。请根据角色背景，列出初始装备。返回JSON: {"equipment_text":"装备描述","weapon":{"name":"武器名","quality":"普通","bonus":0},"armor":{"name":"防具名","quality":"普通","bonus":0}}`;
+    // v0.5.14: prompt 升级 — 带 classId + T1 + 出生地, 装备贴合职业
+    const classContext = buildClassContext();
+    const prompt = `角色背景: ${background}\n${classContext}\n出生在${village.name}（${startRegionName}）。请根据角色背景和职业倾向，列出初始装备。返回JSON: {"equipment_text":"装备描述","weapon":{"name":"武器名","quality":"普通","bonus":0},"armor":{"name":"防具名","quality":"普通","bonus":0}}`;
     const raw = await callPM(prompt, '');
     try { const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw); setEquipmentSummary(json.equipment_text || raw); }
     catch { setEquipmentSummary(`${characterName || '冒险者'}带着简单的装备从${village.name}出发。`); }
@@ -250,7 +271,10 @@ export function CharacterCreationWizard({
 
   // Step 6: Generate name & appearance if not set
   const generateNameAndAppearance = async () => {
-    const prompt = `角色背景: ${background}\n请根据这个角色的背景，生成一个合适的名字和简短的外貌描述（1-2句话）。返回JSON: {"name":"角色名","appearance":"外貌描述"}`;
+    // v0.5.14: prompt 升级 — 带 classId + 6 属性, 名字+外貌更贴合职业
+    const classContext = buildClassContext();
+    const attrSummary = `STR:${attributes.STR} DEX:${attributes.DEX} CON:${attributes.CON} INT:${attributes.INT} WIS:${attributes.WIS} CHA:${attributes.CHA}`;
+    const prompt = `角色背景: ${background}\n${classContext}\n属性: ${attrSummary}\n请根据这个角色的背景、职业倾向和属性，生成一个合适的名字和简短的外貌描述（1-2句话）。返回JSON: {"name":"角色名","appearance":"外貌描述"}`;
     const raw = await callPM(prompt, '');
     try {
       const json = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || raw);
