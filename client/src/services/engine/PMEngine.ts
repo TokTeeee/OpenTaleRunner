@@ -479,9 +479,112 @@ export class PMEngine {
     try { return JSON.parse(text); }
     catch {
       logger.warn('PMEngine', `JSON parse failed, raw: ${raw.slice(0, 300)}`);
+      // v0.5.15: 优先尝试 markdown 风格 fallback, LLM 经常用 **XXX**: 输出
+      const markdown = this.extractMarkdownStyleFields(raw);
+      if (markdown) return markdown;
       const loose = this.extractLooseJsonFields(raw);
       return Object.keys(loose).length > 0 ? loose : { narrative: this.unwrapCodeFence(raw) };
     }
+  }
+
+  /**
+   * v0.5.15: 检测 LLM 是否以 markdown 风格输出 (而非 JSON).
+   * 模式: `**XXX**: value` (中文/英文冒号均支持)
+   * 返回 null 表示不含 markdown 标签, 走原 fallback.
+   * 返回 Record 表示已拆分 narrative + 结构化字段.
+   */
+  private extractMarkdownStyleFields(raw: string): Record<string, unknown> | null {
+    const text = this.unwrapCodeFence(raw);
+    // 检测关键模式: 至少有一个 **XXX**: 标签
+    if (!/\*\*[^*]+\*\*\s*[:：]/.test(text)) return null;
+
+    const result: Record<string, unknown> = {};
+
+    // 1. **时间流逝**: X
+    const timeMatch = text.match(/\*\*时间流逝\*\*\s*[:：]\s*([^*\n]+)/);
+    if (timeMatch) result.time_elapsed = timeMatch[1].trim();
+
+    // 2. **当前位置**: X
+    const locMatch = text.match(/\*\*当前位置\*\*\s*[:：]\s*([^*\n]+)/);
+    if (locMatch) result.current_location = locMatch[1].trim();
+
+    // 3. **饥饿/口渴/疲劳/卫生/士气/负重**: N — 合并为 state_changes
+    const stateKeyMap: Array<[string, string]> = [
+      ['饥饿', 'hunger'],
+      ['口渴', 'thirst'],
+      ['疲劳', 'fatigue'],
+      ['卫生', 'hygiene'],
+      ['士气', 'morale'],
+      ['负重', 'encumbrance'],
+    ];
+    const stateChanges: Record<string, number> = {};
+    for (const [label, field] of stateKeyMap) {
+      const m = text.match(new RegExp(`\\*\\*${label}\\*\\*\\s*[:：]\\s*(\\d+(?:\\.\\d+)?)`));
+      if (m) stateChanges[field] = Number(m[1]);
+    }
+    if (Object.keys(stateChanges).length > 0) {
+      result.consequences = { ...(result.consequences as Record<string, unknown> || {}), state_changes: stateChanges };
+    }
+
+    // 4. **你的选择**: 段 → 拆分 choices
+    // 找到 "**你的选择**:" 之后的所有内容, 按 "- 对白" 或 "- " 拆
+    const choicesMatch = text.match(/\*\*你的选择\*\*\s*[:：]\s*([\s\S]+?)(?=\n\s*\n|\*\*[^*]+\*\*\s*[:：]|$)/);
+    if (choicesMatch) {
+      const choicesText = choicesMatch[1];
+      // 按 "- 对白" 或 "- " (行首) 拆分
+      const blocks = choicesText.split(/^\s*-\s*/m).map((b) => b.trim()).filter(Boolean);
+      const choices: Array<{ text: string; hint: string; tendency: string }> = [];
+      for (const block of blocks) {
+        // 主模式: 对白\n「<text>」\n(倾向: <tendency>)
+        const m = block.match(/对白\s*\n?「([^」]+)」\s*\n?\(倾向\s*[:：]\s*([^)]+)\)/);
+        if (m) {
+          choices.push({
+            text: m[1].trim(),
+            hint: '',
+            tendency: this.normalizeTendency(m[2].trim()),
+          });
+          continue;
+        }
+        // 简版: 仅 「<text>」
+        const simple = block.match(/「([^」]+)」/);
+        if (simple) {
+          choices.push({ text: simple[1].trim(), hint: '', tendency: 'explore' });
+        }
+      }
+      if (choices.length > 0) result.choices = choices;
+    }
+
+    // 5. 清洗 narrative — 去除所有结构化标签 + choice 段
+    let narrative = text;
+    // Step A: 去掉单行 **XXX**: <value> 标签
+    narrative = narrative.replace(/\*\*[^*]+\*\*\s*[:：][^\n]*\n?/g, '');
+    // Step B: 移除所有 "- 对白 ... (倾向: ...)" choice 段 (不限位置)
+    // 注: 不加尾部 \s*, 避免消耗后续换行; 多个 choice 块会依次匹配
+    narrative = narrative.replace(/-\s*对白\s*「[^」]+」\s*\(倾向\s*[:：][^)]+\)/g, '');
+    // Step C: 去掉 numbering 前缀 (任意位置), orphan "-", 多余空行
+    narrative = narrative.replace(/^(\s*\d+\.\s*)+/gm, '');  // 开头 N. 编号 (含 1. 2.)
+    narrative = narrative.replace(/^\s*-\s*$/gm, '');       // 单独的 "- " 行
+    narrative = narrative.replace(/^\s*-\s+/gm, '');         // 行内 "- " 残留
+    narrative = narrative.replace(/\n{2,}/g, '\n').trim();  // 折叠空行
+
+    if (narrative) result.narrative = narrative;
+
+    return Object.keys(result).length > 0 ? result : null;
+  }
+
+  /**
+   * v0.5.15: 中文倾向标签 → 英文 tendency 映射
+   */
+  private normalizeTendency(raw: string): string {
+    const t = raw.replace(/\s/g, '').toLowerCase();
+    if (t.includes('战斗')) return 'combat';
+    if (t.includes('探索') || t.includes('调查')) return 'explore';
+    if (t.includes('社交') || t.includes('对话') || t.includes('交涉') || t.includes('说服')) return 'social';
+    if (t.includes('投机')) return 'opportunistic';
+    if (t.includes('回避') || t.includes('逃离') || t.includes('撤退')) return 'avoid';
+    // 已经是英文: combat/explore/social/opportunistic/avoid
+    if (['combat', 'explore', 'social', 'opportunistic', 'avoid'].includes(t)) return t;
+    return 'explore';
   }
 
   private unwrapCodeFence(raw: string): string {

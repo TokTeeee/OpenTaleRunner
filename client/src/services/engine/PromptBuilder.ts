@@ -559,6 +559,13 @@ export class PromptBuilder {
 5. 如果玩家获得了报酬/物品/金币，或消耗了物品，在consequences中体现
 6. 给出当前精确位置（current_location）
 7. ${this.dialogueFormattingRule()}
+
+⚠ 严禁 (v0.5.15):
+- **narrative 字段必须是纯叙事文本, 严禁包含 \`**时间流逝**\`、\`**当前位置**\`、\`**饥饿**\` 等 markdown 标签**. 这些数据必须通过 JSON 字段返回 (time_elapsed/current_location/consequences.state_changes).
+- **choices 字段只放选项文本 (如 "去调查磨坊的狼")**, 严禁包含「」包裹的台词、角色名 (如 "老巴托克")、或 "(倾向: 战斗)" 之类. tendency 必须是英文枚举值.
+- **返回纯 JSON**, 严禁用 \`\`\`json\`\`\` 等代码块包裹, 严禁在 JSON 前后加任何解释性文字.
+- 状态数字必须是阿拉伯数字整数 (如 3, 不要写 "三" 或 "3.0").
+
 ${this.buildGhostEncounterHint(data)}
 返回JSON（直接返回JSON，不要代码块）：
 {
