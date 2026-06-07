@@ -1,5 +1,34 @@
 # Changelog
 
+## v0.5.11 — 2026-06-07 (useActionSubmit 拆 4 sub-hook)
+
+`useActionSubmit.ts` 拆 1 入口 + 4 sub-hook, 纯重构, 行为不变。
+
+### What's in this release
+
+**入口 `useActionSubmit.ts` 408 → 57 行**
+
+入口只剩模式分发 (多人 vs 单人) + 5 个公开 export。
+
+**4 sub-hook (新增)**
+
+- `useDiceJudge.ts` — `judgeAction(action, char)` 抽象骰子/检定, ≤ 2 absurdity 自动 success, > 2 走 `_judgeSystem`
+- `useErrorRecovery.ts` — `handlePMError` / `clearError`, 从 `usePMInitialization` 抽出
+- `useSingleSubmit.ts` — 单人 mode 主路径 (initPM / dice / PM engine / consequences / chronicle / memory / save / TTS)
+- `useMultiplayerSubmit.ts` — 多人 mode `submitActionMulti(action)` + `skipRound()`, MP 路径完整抽出
+
+**5 导出签名不变**
+
+`submitAction` / `submitCustom` / `pickChoice` / `abort` / `skipAction` — 5 个外部 import 不需要改。
+
+### Validation
+
+- 87 files / 946 tests pass
+- lint 0 errors / 0 warnings
+- typecheck 0 errors
+
+---
+
 ## v0.5.10 — 2026-06-07 (5 项代码小修: validateOverride / JWT username / SocialPanel 大图 / 文档对齐)
 
 5 件独立小改,每件都有单测/集成测试覆盖。
