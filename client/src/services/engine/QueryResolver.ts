@@ -2,6 +2,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useNPCStore } from '../../stores/npcStore';
 import { useWorldStore } from '../../stores/worldStore';
+import type { Item } from '../../types/item';
 
 export interface GMQuery {
   query_id: string;
@@ -19,6 +20,72 @@ export interface QueryResult {
   query_id: string;
   status: 'found' | 'not_found' | 'partial';
   data: string;
+}
+
+/**
+ * v0.5.12: 暴露给 GM tool 调用的 inventory 搜索结果。
+ * `slot`: 物品在 character.inventory 内的位置 (weapon / armor / accessory / backpack)
+ */
+export interface InventorySearchResult {
+  itemId?: string;
+  name: string;
+  description: string;
+  category: string;
+  quality: string;
+  quantity: number;
+  slot: 'weapon' | 'armor' | 'accessory' | 'backpack';
+  effects: string[];
+  durability?: number;
+}
+
+export interface InventorySearchParams {
+  keyword: string;
+  characterId?: string;
+}
+
+/**
+ * v0.5.12: 公开 API, 供 GM tool `inventory_search` 调用。
+ * - 默认查当前 character, characterId 显式传则按 characterId 查
+ * - 大小写不敏感, 空 keyword 返回全部
+ * - 查 equipped 3 槽 + backpack
+ */
+export function inventorySearch(params: InventorySearchParams): InventorySearchResult[] {
+  const charStore = useCharacterStore.getState();
+  const char = params.characterId
+    ? (charStore.character?.characterId === params.characterId ? charStore.character : null)
+    : charStore.character;
+  if (!char) return [];
+
+  const kw = params.keyword.toLowerCase();
+  const results: InventorySearchResult[] = [];
+
+  for (const slot of ['weapon', 'armor', 'accessory'] as const) {
+    const item = char.inventory.equipped[slot];
+    if (!item) continue;
+    if (kw && !item.name.toLowerCase().includes(kw) && !(item.description || '').toLowerCase().includes(kw)) continue;
+    results.push(toResult(item, slot));
+  }
+
+  for (const item of char.inventory.backpack) {
+    if (kw && !item.name.toLowerCase().includes(kw) && !(item.description || '').toLowerCase().includes(kw)) continue;
+    results.push(toResult(item, 'backpack'));
+  }
+
+  return results;
+}
+
+function toResult(item: Item, slot: 'weapon' | 'armor' | 'accessory' | 'backpack'): InventorySearchResult {
+  return {
+    itemId: item.itemId,
+    name: item.name,
+    description: item.description || '',
+    category: item.category || 'consumable',
+    quality: item.quality || '普通',
+    quantity: item.quantity ?? 1,
+    slot,
+    effects: (item.effects || []).map(e => e.description).filter(Boolean),
+    durability: item.durability,
+  };
 }
 
 export function resolveQueries(queries: GMQuery[]): QueryResult[] {
