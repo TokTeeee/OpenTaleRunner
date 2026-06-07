@@ -6,12 +6,15 @@ import { useCodexStore } from '../../stores/codexStore';
 import { useItemRegistryStore } from '../../stores/itemRegistryStore';
 import { generateLootAffixes } from './lootAffixes';
 import { buildItemFromGained, syncBackpackFromRegistry, findInRegistryByCharacter } from './helpers';
+import { applyAttributes } from './applyAttributes';
 import type { RNG } from '../../data/affixPool';
 
 /**
  * PR-2 契约: 物品的世界真相是 itemRegistry, char.inventory.backpack 是派生视图.
  * 本文件所有物品 mutation 都走 itemRegistry.register/transfer/destroy/patch,
  * 然后调 syncBackpackFromRegistry 刷新 legacy 视图, 保持向后兼容.
+ *
+ * v0.5.13: 主入口委派 5 业务域 (attributes/conditions/skills/reputation/items).
  */
 
 export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): { newDiscoveries: WorldItem[] } | undefined {
@@ -21,18 +24,8 @@ export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): 
   const charId = char.characterId;
   const newDiscoveries: WorldItem[] = [];
 
-  if (cons.attributeChanges) {
-    const attrs = { ...char.attributes };
-    for (const [key, value] of Object.entries(cons.attributeChanges)) {
-      if (key in attrs && typeof value === 'number') {
-        (attrs as Record<string, number>)[key] = Math.max(3, Math.min(18, (attrs as Record<string, number>)[key] + value));
-      }
-    }
-    charStore.updateAttributes(attrs);
-  }
-
-  if (cons.identityChanges) {
-    charStore.updateIdentity(cons.identityChanges);
+  if (cons.attributeChanges || cons.identityChanges) {
+    applyAttributes(cons);
   }
 
   if (cons.conditionsAdded?.length) {
