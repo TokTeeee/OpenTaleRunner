@@ -171,7 +171,7 @@ export function CharacterCreationWizard({
       return `职业: ${classId} (未知职业)`;
     }
     const t1NodeName = classSkills.length > 0
-      ? (classDef as any).nodes?.find((n: any) => n.nodeId === classSkills[0])?.name ?? '基础'
+      ? classDef.nodes.find((n) => n.id === classSkills[0]?.nodeId)?.name ?? '基础'
       : '未选 T1 节点';
     return `职业: ${classDef.name}\nT1 节点: ${t1NodeName}`;
   };

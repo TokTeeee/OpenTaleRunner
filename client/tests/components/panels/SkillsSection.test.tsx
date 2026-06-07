@@ -47,7 +47,7 @@ describe('SkillsSection', () => {
     useCharacterStore.setState({
       character: makeChar({
         classId: 'warrior',
-        classSkills: ['warrior_t1_1'],
+        classSkills: [{ classId: 'warrior', nodeId: 'warrior_t1_1', unlockedAt: 1 }],
       }) as any,
     });
     render(<SkillsSection />);
@@ -71,7 +71,7 @@ describe('SkillsSection', () => {
     useCharacterStore.setState({
       character: makeChar({
         classId: 'warrior',
-        classSkills: ['warrior_t1_1'],
+        classSkills: [{ classId: 'warrior', nodeId: 'warrior_t1_1', unlockedAt: 1 }],
         level: 1,
       }) as any,
     });
@@ -85,7 +85,7 @@ describe('SkillsSection', () => {
       character: makeChar({
         skills: [{ id: 's1', name: '野外生存', level: 2 }],
         classId: 'warrior',
-        classSkills: ['warrior_t1_1'],
+        classSkills: [{ classId: 'warrior', nodeId: 'warrior_t1_1', unlockedAt: 1 }],
       }) as any,
     });
     render(<SkillsSection />);

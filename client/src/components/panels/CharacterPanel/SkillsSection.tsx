@@ -41,10 +41,13 @@ export function SkillsSection() {
   // 2. 职业相关
   const classDef = character.classId ? getClass(character.classId) : null;
   if (classDef) {
-    const nodes = classDef.nodes ?? [];
+    const nodes = (classDef.nodes ?? []) as Array<{ id: string; tier: number; slot: number; name: string }>;
+    // 已学节点 ID 列表 (从 ClassSkillNode[] 提取 nodeId)
+    const learnedIds = (character.classSkills ?? []).map((n) => n.nodeId);
+    const learnedSet = new Set(learnedIds);
 
     // 2a. 已学 (classlearned) — 绿
-    for (const nodeId of character.classSkills ?? []) {
+    for (const nodeId of learnedIds) {
       const node = nodes.find((n) => n.id === nodeId);
       if (node) {
         chips.push({
@@ -56,7 +59,6 @@ export function SkillsSection() {
     }
 
     // 2b. 可学未选 (classavailable) — 黄 (按 tier 升序)
-    const learnedSet = new Set(character.classSkills ?? []);
     const available = nodes
       .filter((n) => !learnedSet.has(n.id))
       .sort((a, b) => a.tier - b.tier || a.slot - b.slot);
