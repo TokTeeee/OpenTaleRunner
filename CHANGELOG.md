@@ -1,5 +1,61 @@
 # Changelog
 
+## v0.5.7 — 2026-06-06 (LevelUp end-to-end integration test)
+
+Closes the v0.5.6 followup "no e2e test for the combat→EXP→level→tier
+chain" by adding a single-script `it()` that walks all 7 state
+transitions of the v0.5 main path. No production code changes; no
+public API changes; pure test + docs.
+
+### What's covered (12 micro-steps in 1 it())
+
+- Step 0: character L1, no class, no classId
+- Step 1: `subscribeCharacterExpEvents({ debounceMs: 200 })`
+- Step 2: `GuildClassModal` opens, pick `warrior + warrior_t1_1`,
+  `setClass` writes locally, async PATCH `/class` is issued
+- Step 3: emit `COMBAT_HIT ×10 + COMBAT_KILL ×1 + COMBAT_END.victory ×1`
+  (totals 45 exp)
+- Step 4: await 300ms (200ms debounce + slack)
+- Step 5: assert PATCH `/exp` called exactly once with
+  `body === {amount:45, difficulty:'normal'}`
+- Step 6: mock server jumps the response to L5
+  (`{level:5, exp:0, expToNext:600, unspentAttributePoints:0}`);
+  `applyServerExpGrant` writes → `character.level === 5`
+- Step 7: unmount `GuildClassModal`, render `TierUnlockModal`,
+  assert 3 T2 options visible
+- Step 8: click `warrior_t2_1`, `setClass` appends,
+  async PATCH `/class` (now 2 calls total)
+- Step 9: cleanup (unsub + eventBus.clear + fetch restore)
+
+### Why this is not redundant with `tests/integration/guild.test.tsx`
+
+The existing "full chain" test in `guild.test.tsx` uses `grantExp()` to
+push the level up, **skipping the event layer**. This new test verifies
+the **event → subscriber → PATCH** contract — exactly the layer that
+v0.5.4 audit Gap #1 (broken EXP trigger chain) was about. So the two
+tests are complementary, not duplicates.
+
+### Test results
+
+- **Client**: 10/10 stable runs of the new test; full client suite
+  85/85 files, 939/939 tests pass.
+- **typecheck + lint**: 0 errors (no new ones introduced).
+- **Server**: not touched; 51/51 still pass.
+
+### Docs
+
+- `docs/zh/角色系统.md` — v0.5.7 段说明
+- `docs/en/Character-System.md` — same translated
+
+### Out of scope (parking lot, unchanged from v0.5.6)
+
+- multi-PATCH failure / retry chain
+- real server end-to-end (would need a server process in CI)
+- multiplayer EXP sharing (v0.6)
+- L1 → L20 (3 more tier picks)
+
+---
+
 ## v0.5.6 — 2026-06-06 (v0.5 hotfix-debt cleanup)
 
 Cleared the residual `lint` / `typecheck` debt that v0.5.1–v0.5.4 left
