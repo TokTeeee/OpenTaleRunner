@@ -167,11 +167,23 @@ function SocialPanelInner() {
               </button>
             </div>
 
-            {/* Portrait placeholder — will be replaced by actual illustration later */}
-            <div className="px-4 pt-2">
-              <div className="w-full aspect-[3/4] max-h-48 mx-auto rounded-xl bg-gradient-to-b from-gray-800/50 to-gray-800/20 border border-gray-700/30 flex items-center justify-center">
-                <span className="text-4xl opacity-20">{selectedNpc.name[0]}</span>
-              </div>
+            {/* Large portrait — uses imageGen URL from header fetch, falls back to letter gradient */}
+            <div className="px-4 pt-2" data-testid="npc-portrait-large-wrapper">
+              {npcPortraits[selectedNpc.npcId] ? (
+                <img
+                  src={npcPortraits[selectedNpc.npcId]}
+                  alt={selectedNpc.name}
+                  data-testid="npc-portrait-large"
+                  className="w-full aspect-[3/4] max-h-48 mx-auto rounded-xl object-cover"
+                />
+              ) : (
+                <div
+                  data-testid="npc-portrait-large"
+                  className="w-full aspect-[3/4] max-h-48 mx-auto rounded-xl bg-gradient-to-b from-gray-800/50 to-gray-800/20 border border-gray-700/30 flex items-center justify-center"
+                >
+                  <span className="text-4xl opacity-20">{selectedNpc.name[0]}</span>
+                </div>
+              )}
             </div>
 
             <div className="p-4 space-y-4">
