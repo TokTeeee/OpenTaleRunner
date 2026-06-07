@@ -69,6 +69,31 @@ export class PromptBuilder {
     });
   }
 
+  /**
+   * Validate a PromptOverride for the given slot.
+   * Returns null on valid, or an error string on invalid.
+   *
+   * - queryProtocol slot: enforces whitelist of legal field prefixes
+   *   (求差集: content 必须以白名单字段开头)
+   * - all slots: content length <= 2000 chars
+   * - whitelist checked BEFORE length (whitelist error has priority)
+   */
+  validateOverride(o: PromptOverride, slot: string): string | null {
+    if (slot === 'queryProtocol') {
+      const WHITELIST = ['SCENE:', 'NPC:', 'QUEST:', 'INVENTORY:', 'COMBAT:', 'TIME:'];
+      const hasWhitelisted = WHITELIST.some(prefix =>
+        o.content.startsWith(prefix) || o.content.includes('\n' + prefix)
+      );
+      if (!hasWhitelisted) {
+        return 'whitelist violation: queryProtocol content must start with one of: ' + WHITELIST.join(', ');
+      }
+    }
+    if (o.content.length > 2000) {
+      return `content length ${o.content.length} exceeds max 2000 chars`;
+    }
+    return null;
+  }
+
   /** Apply overrides to base content */
   applyOverrides(
     baseContent: string,
@@ -82,6 +107,11 @@ export class PromptBuilder {
     let result = baseContent;
 
     for (const override of applicable) {
+      const validationError = this.validateOverride(override, slot);
+      if (validationError) {
+        console.warn(`[PromptBuilder] Override skipped: ${validationError}`);
+        continue;
+      }
       const resolved = this.resolvePlaceholders(override.content);
       // Safety: JSON schema only allows replace mode
       const effectiveMode = (slot === 'jsonSchemaAdvance' || slot === 'jsonSchemaScene')
