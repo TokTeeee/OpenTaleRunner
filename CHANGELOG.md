@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.5.13 — 2026-06-07 (applyConsequences 按业务域拆 5 + 1)
+
+`applyConsequences.ts` 184 → 47 行, 5 业务域独立文件, 错误隔离 + 新发现聚合.
+
+### What's in this release
+
+**主入口 applyConsequences.ts 瘦身 184 → 47 行**
+
+只做 1 个 char 检查 + 5 个按顺序的业务域调用. 错误隔离在每域内 try/catch.
+
+**5 业务域独立文件 (新增)**
+
+- `applyAttributes.ts` (业务域 1) — `attributeChanges` + `identityChanges`
+- `applyConditions.ts` (业务域 2) — `conditionsAdded` + `conditionsRemoved` (内部去重)
+- `applySkills.ts` (业务域 3) — `skillsModified`
+- `applyReputation.ts` (业务域 4) — `reputationChange` + `currencyChange` (含 CHA 重定向, P5 审计)
+- `applyItems.ts` (业务域 5) — `itemsGained` + `itemsLost` + `itemsModified` (唯一产生 `newDiscoveries`)
+
+**1 helper (新增)**
+
+- `helpers.ts` — 4 跨域工具: `buildItemFromGained` / `syncBackpackFromRegistry` / `worldItemToLegacyView` / `findInRegistryByCharacter`
+
+**业务域顺序 (约束)**
+
+`attributes` → `conditions` → `skills` → `reputation` → `items` (依赖其他域 final state)
+
+**新发现聚合**
+
+`applyItems` 返回 `ItemDiscovery[]` (itemId / itemName / discoveredAt). 主入口透传为 `{ newDiscoveries }`.
+
+**新返回类型 (compat)**
+
+`{ newDiscoveries: ItemDiscovery[] }` (was `WorldItem[]`). 外部消费者只读 length, 无破坏性.
+
+**测试 27 个新增 (5 文件)**
+
+- `applyAttributes.test.ts` 5 个: attribute / clamp / identity / no-op / error isolation
+- `applyConditions.test.ts` 5 个: add / remove / dedup / no-op / error isolation
+- `applySkills.test.ts` 5 个: level / name / missing skillId / no-op / error isolation
+- `applyReputation.test.ts` 6 个: global / regional / CHA redirect / currency / no-op / error
+- `applyItems.test.ts` 6 个: gained / re-gain / lost full / lost partial / no-op / error
+- `applyConsequences-integration.test.ts` 4 个: 5-domain 顺序 / 错误隔离 / 无角色 / null cons
+
+### Validation
+
+- 95 files / 988 tests pass (从 89/957 +27)
+- lint 0 errors / 0 warnings
+- typecheck 0 errors
+
+---
+
 ## v0.5.12 — 2026-06-07 (backpack_full on-demand: inventory_search GM tool)
 
 GM 调 `inventory_search` tool 按需查背包,代替一次性 inject。
