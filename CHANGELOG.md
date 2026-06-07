@@ -1,5 +1,60 @@
 # Changelog
 
+## v0.5.8 — 2026-06-07 (v0.5.x 收尾 — 文档 / 孤儿 action / 失败链路 e2e)
+
+Closes the last v0.5.x parking lot items in one small PR. No engine /
+combat code changes; no public API changes for end users.
+
+### What's in this release
+
+**F — CacheManager doc cleanup**
+
+`CacheManager.ts` was actually removed in v0.3 (see CHANGELOG line
+465), but `docs/en/Client-Architecture.md` and
+`docs/zh/客户端架构与机制.md` still listed it as a "placeholder
+system requiring decision". Removed the 6 stale references (3 per
+file) so the architecture docs match the actual codebase.
+
+**A-5 — Drop orphan `applyServerAttributeSpend`**
+
+v0.5.6 parking lot item: the only UI consumer (`AttributeRow`) was
+deleted in v0.5.6, leaving `characterStore.applyServerAttributeSpend`
+with no callers. Per v0.5.8 spec §2.2 user decision, removed the
+action + its type declaration + its 1 test. Will be re-introduced
+when a v0.6+ spec reintroduces the attribute-spend UI.
+
+**A-1 — EXP PATCH failure-path e2e**
+
+Added `client/tests/integration/expRetry.test.tsx`, a single-script
+`it()` that walks the failure path of `subscribeCharacterExpEvents`:
+assert that a non-2xx PATCH `/exp` does **not** write the store, and
+that a subsequent event still triggers a fresh PATCH that does
+write. Closes v0.5.7 parking lot item 1.
+
+**Important: this test does NOT verify a true retry queue.**
+The current implementation (`subscribeCharacterEvents.ts:49-87`)
+clears `pending` *before* `fetch` runs, so a failed PATCH discards
+the accumulated amount; only new events can re-trigger a PATCH. The
+test asserts this current behavior, not a stronger "merge-on-retry"
+behavior. Real retry queue logic is deferred to a v0.6 spec.
+
+### Test results
+
+- **Client**: 10/10 stable runs of the new test; full client suite
+  86/86 files, 939/939 tests pass (A-5 −1 + A-1 +1 = net 0).
+- **typecheck + lint**: 0 errors.
+- **Server**: not touched; 51/51 still pass.
+
+### Out of scope (parking lot, remaining after this release)
+
+- real server end-to-end (would need a server process in CI)
+- multiplayer EXP sharing (v0.6)
+- L1 → L20 (3 more tier picks)
+- **true retry queue for failed EXP PATCH** (added by A-1; the e2e
+  documents current "discard + re-emit" behavior, not a fix)
+
+---
+
 ## v0.5.7 — 2026-06-06 (LevelUp end-to-end integration test)
 
 Closes the v0.5.6 followup "no e2e test for the combat→EXP→level→tier
