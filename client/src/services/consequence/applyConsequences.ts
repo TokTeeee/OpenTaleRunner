@@ -8,6 +8,7 @@ import { generateLootAffixes } from './lootAffixes';
 import { buildItemFromGained, syncBackpackFromRegistry, findInRegistryByCharacter } from './helpers';
 import { applyAttributes } from './applyAttributes';
 import { applyConditions } from './applyConditions';
+import { applySkills } from './applySkills';
 import type { RNG } from '../../data/affixPool';
 
 /**
@@ -34,13 +35,7 @@ export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): 
   }
 
   if (cons.skillsModified?.length) {
-    for (const sm of cons.skillsModified) {
-      charStore.modifySkill(sm.skillId, {
-        newName: sm.newName,
-        newDescription: sm.newDescription,
-        levelChange: sm.levelChange,
-      });
-    }
+    applySkills(cons);
   }
 
   if (cons.reputationChange && Object.keys(cons.reputationChange).length > 0) {
