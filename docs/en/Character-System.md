@@ -297,3 +297,28 @@ pattern used by `updateAttributes` / `addSkill` etc.
   (`phase === 'settled'`). This avoids interrupting the existing
   interaction flow.
 
+## 4.6 v0.5.7 Increment — End-to-end Regression Test
+
+Added `client/tests/integration/levelUpFlow.test.tsx`, a single-script
+`it()` that walks through all 7 state transitions of the v0.5 main
+path, serving as the v0.5 "integration regression net":
+
+| Transition | Verification |
+|------------|--------------|
+| 1. Combat event emit | `eventBus.emit(COMBAT_HIT × 10 + COMBAT_KILL + COMBAT_END.victory)` |
+| 2. subscriber aggregation | 200ms debounce window merges to single PATCH |
+| 3. PATCH /exp | `fetch` called once, body `{amount:45, difficulty:'normal'}` |
+| 4. server computes new level | mock jumps to L5 patch (`{level:5, exp:0, expToNext:600, ...}`) |
+| 5. applyServerExpGrant | `character.level === 5` written to store |
+| 6. TierUnlockModal pops | L5 + T1 already picked → `pendingTierChoice` returns 2 → 3 T2 options visible |
+| 7. pick T2 node + PATCH /class | `setClass` appends → `fetch /class` accumulates 2 calls (1 from Guild earlier) |
+
+Difference from the existing "full chain" test in
+`tests/integration/guild.test.tsx`: that one uses `grantExp()` to push
+the level, **skipping the event layer**; this one verifies the
+**event → subscriber → PATCH** contract — the regression net for
+v0.5.4 audit Gap #1.
+
+Test file ~150 lines, 10/10 runs stable. Full client: 85/85 files,
+939/939 tests. `npm run typecheck` + `npm run lint` 0 errors.
+
