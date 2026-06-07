@@ -1,6 +1,6 @@
 /**
- * SkillsSection 单元测试 — 3 种 chip 分类
- * v0.5.14
+ * SkillsSection 单元测试 — 2 种 chip 分类 (origin + classlearned)
+ * v0.5.14 (v0.5.14-fix: 移除 classavailable 黄色 chip)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import React from 'react';
@@ -40,7 +40,6 @@ describe('SkillsSection', () => {
     render(<SkillsSection />);
     expect(screen.getByTestId('skill-chip-origin-s1')).toBeTruthy();
     expect(screen.queryByTestId(/skill-chip-classlearned-/)).toBeNull();
-    expect(screen.queryByTestId(/skill-chip-classavailable-/)).toBeNull();
   });
 
   it('classId=warrior + classSkills=[warrior_t1_1], 显示 1 绿 chip', () => {
@@ -54,7 +53,7 @@ describe('SkillsSection', () => {
     expect(screen.getByTestId('skill-chip-classlearned-warrior_t1_1')).toBeTruthy();
   });
 
-  it('classId=warrior + 0 已学, 显示 12 黄 chip (T1-T4 全 12 节点都可学, ClassNode 无 unlockedByLevel)', () => {
+  it('v0.5.14-fix: classId=warrior + 0 已学, 不显示黄 chip (available 全部移除)', () => {
     useCharacterStore.setState({
       character: makeChar({
         classId: 'warrior',
@@ -63,11 +62,11 @@ describe('SkillsSection', () => {
       }) as any,
     });
     render(<SkillsSection />);
-    const available = screen.getAllByTestId(/^skill-chip-classavailable-/);
-    expect(available.length).toBe(12);  // 所有 12 节点都可学
+    // 可学未学节点不再显示
+    expect(screen.queryByTestId(/^skill-chip-classavailable-/)).toBeNull();
   });
 
-  it('classId=warrior + 1 已学, 显示 11 黄 chip (12-1)', () => {
+  it('v0.5.14-fix: classId=warrior + 1 已学, 只显示 1 绿 chip, 无黄 chip', () => {
     useCharacterStore.setState({
       character: makeChar({
         classId: 'warrior',
@@ -76,11 +75,12 @@ describe('SkillsSection', () => {
       }) as any,
     });
     render(<SkillsSection />);
-    const available = screen.getAllByTestId(/^skill-chip-classavailable-/);
-    expect(available.length).toBe(11);  // 12 - 1 learned
+    const green = screen.getAllByTestId(/^skill-chip-classlearned-/);
+    expect(green.length).toBe(1);
+    expect(screen.queryByTestId(/^skill-chip-classavailable-/)).toBeNull();
   });
 
-  it('chip 文本: origin 显示 name Lv.X, class 显示 T{tier}·{slot} name', () => {
+  it('chip 文本: origin 显示 name Lv.X, classlearned 显示 T{tier}·{slot} name', () => {
     useCharacterStore.setState({
       character: makeChar({
         skills: [{ id: 's1', name: '野外生存', level: 2 }],
@@ -94,6 +94,21 @@ describe('SkillsSection', () => {
     expect(originChip.textContent).toContain('Lv.2');
     const classChip = screen.getByTestId('skill-chip-classlearned-warrior_t1_1');
     expect(classChip.textContent).toContain('T1');
+  });
+
+  it('v0.5.14-fix: origin 蓝 + classlearned 绿 同时显示, 颜色 class 不同', () => {
+    useCharacterStore.setState({
+      character: makeChar({
+        skills: [{ id: 's1', name: '野外生存', level: 2 }],
+        classId: 'warrior',
+        classSkills: [{ classId: 'warrior', nodeId: 'warrior_t1_1', unlockedAt: 1 }],
+      }) as any,
+    });
+    render(<SkillsSection />);
+    const originChip = screen.getByTestId('skill-chip-origin-s1');
+    const classChip = screen.getByTestId('skill-chip-classlearned-warrior_t1_1');
+    expect(originChip.className).toContain('indigo');
+    expect(classChip.className).toContain('emerald');
   });
 
   it('无任何技能时, 整个 section 不渲染 (返回 null)', () => {

@@ -112,7 +112,7 @@ describe('ClassSkillTreeModal', () => {
 
   it('点击 overlay (overlay 区域) 触发 onClose', () => {
     const onClose = vi.fn();
-    const { container } = render(
+    render(
       <ClassSkillTreeModal
         classId="warrior"
         isOpen={true}
@@ -121,10 +121,31 @@ describe('ClassSkillTreeModal', () => {
         currentLevel={1}
       />,
     );
-    const overlay = container.querySelector('[data-testid="class-skill-tree-modal"]') as HTMLElement;
+    // v0.5.14-fix: Modal 用 createPortal 渲染到 document.body, 所以用 screen 而非 container
+    const overlay = screen.getByTestId('class-skill-tree-modal');
     expect(overlay).toBeTruthy();
     fireEvent.click(overlay);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('v0.5.14-fix: Modal 用 createPortal 渲染到 document.body, 逃出 panel 的 transform containing block', () => {
+    const wrapper = document.createElement('div');
+    wrapper.style.transform = 'translateY(0)'; // 模拟 CharacterPanel 的 animate-in 造成的 containing block
+    document.body.appendChild(wrapper);
+    render(
+      <ClassSkillTreeModal
+        classId="warrior"
+        isOpen={true}
+        onClose={noop}
+        learnedNodes={[]}
+        currentLevel={1}
+      />,
+      { container: wrapper },
+    );
+    // Modal 应在 document.body 上, 不在 wrapper 内
+    expect(wrapper.querySelector('[data-testid="class-skill-tree-modal"]')).toBeNull();
+    expect(document.body.querySelector('[data-testid="class-skill-tree-modal"]')).toBeTruthy();
+    document.body.removeChild(wrapper);
   });
 
   it('点击节点 (非 overlay) 不触发 onClose, 改显示详情面板', () => {
