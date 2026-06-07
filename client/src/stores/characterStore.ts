@@ -55,8 +55,6 @@ interface CharacterState {
   applyItemEffects: (item: Item, apply: boolean) => void;
   /** v0.5.1 — 用服务端返回值应用 EXP 授权 (Pydantic 返回 { level, exp, expToNext, unspentAttributePoints }) */
   applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number }) => void;
-  /** v0.5.1 — 用服务端返回值应用属性消费 (Pydantic 返回 { attributes, unspentAttributePoints }) */
-  applyServerAttributeSpend: (patch: { attributes: Attributes; unspentAttributePoints: number }) => void;
   /** v0.5.3 — 设置角色职业与已解锁技能 (本地 + 调用方负责 PATCH /class 同步服务端) */
   setClass: (classId: string | null, classSkills: ClassSkillNode[]) => void;
 }
@@ -218,18 +216,6 @@ export const useCharacterStore = create<CharacterState>((set) => ({
           level: newLevel,
           exp: patch.exp,
           expToNext: patch.expToNext,
-          unspentAttributePoints: patch.unspentAttributePoints,
-        },
-      };
-    }),
-
-  applyServerAttributeSpend: (patch) =>
-    set((s) => {
-      if (!s.character) return s;
-      return {
-        character: {
-          ...s.character,
-          attributes: patch.attributes,
           unspentAttributePoints: patch.unspentAttributePoints,
         },
       };
