@@ -9,6 +9,7 @@ import { buildItemFromGained, syncBackpackFromRegistry, findInRegistryByCharacte
 import { applyAttributes } from './applyAttributes';
 import { applyConditions } from './applyConditions';
 import { applySkills } from './applySkills';
+import { applyReputation } from './applyReputation';
 import type { RNG } from '../../data/affixPool';
 
 /**
@@ -38,36 +39,8 @@ export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): 
     applySkills(cons);
   }
 
-  if (cons.reputationChange && Object.keys(cons.reputationChange).length > 0) {
-    // 审计 P5 修复: charisma 是属性 (CHA) 增量, 不是声誉字段. 移到 attributeChanges 处理.
-    const globalKeys = ['goodness', 'violence', 'lawfulness'];
-    const regional: Record<string, number> = {};
-    const global: Record<string, number> = {};
-    const attrDelta: Record<string, number> = {};
-    for (const [k, v] of Object.entries(cons.reputationChange)) {
-      if (k === 'charisma') attrDelta.CHA = (attrDelta.CHA || 0) + v;
-      else if (globalKeys.includes(k)) global[k] = v;
-      else regional[k] = v;
-    }
-    if (Object.keys(attrDelta).length > 0) {
-      if (!charStore.character) return;
-      const cur = charStore.character.attributes;
-      charStore.updateAttributes({
-        CHA: Math.max(3, Math.min(18, (cur.CHA || 0) + (attrDelta.CHA || 0))),
-      });
-    }
-    if (Object.keys(global).length > 0) charStore.updateReputation(global);
-    if (Object.keys(regional).length > 0) {
-      charStore.updateReputation({ regional });
-    }
-  }
-
-  if (cons.currencyChange) {
-    const c = { ...char.inventory.currency };
-    c.gold += cons.currencyChange.gold || 0;
-    c.silver += cons.currencyChange.silver || 0;
-    c.copper += cons.currencyChange.copper || 0;
-    charStore.updateInventory({ ...char.inventory, currency: c });
+  if (cons.reputationChange || cons.currencyChange) {
+    applyReputation(cons);
   }
 
   if (cons.itemsGained?.length > 0) {
