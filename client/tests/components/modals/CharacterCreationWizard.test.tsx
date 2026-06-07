@@ -1,14 +1,15 @@
 /**
- * CharacterCreationWizard Step 7 (Class) 集成测试
+ * CharacterCreationWizard Step 4 (Class) 集成测试
  *
  * 覆盖:
- * - Step 7 渲染 5 选项 (4 职业 + 无职业)
+ * - Step 4 渲染 5 选项 (4 职业 + 无职业)
  * - 选 "无职业" → classId=null, classSkills=[]
  * - 选 "战士" + T1 节点 → classId=warrior + classSkills=[t1_1]
  * - 选 "战士" + T1 → 最终角色数据含 classId / classSkills
  * - 选 "法师" + T1 → classId=mage
  *
- * 通过 `initialStep` prop 跳过前 6 步以聚焦测试 Step 7 行为。
+ * 通过 `initialStep` prop 跳过前 3 步以聚焦测试 Step 4 行为。
+ * v0.5.14: 职业从 Step 7 移到 Step 4 (在属性之后, 便于 PM 用职业+属性生成背景)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
@@ -46,11 +47,11 @@ beforeEach(() => {
 
 afterEach(() => cleanup());
 
-describe('CharacterCreationWizard Step 7 (Class)', () => {
-  it('Step 7 渲染 5 选项: 4 职业 + 无职业', () => {
+describe('CharacterCreationWizard Step 4 (Class)', () => {
+  it('Step 4 渲染 5 选项: 4 职业 + 无职业', () => {
     render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={() => {}}
         onCancel={() => {}}
       />,
@@ -66,7 +67,7 @@ describe('CharacterCreationWizard Step 7 (Class)', () => {
   it('选 "无职业" → summary 显示 "已选: 无职业"', () => {
     render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={() => {}}
         onCancel={() => {}}
       />,
@@ -84,7 +85,7 @@ describe('CharacterCreationWizard Step 7 (Class)', () => {
   it('选 "战士" → 出现 T1 节点选择', () => {
     render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={() => {}}
         onCancel={() => {}}
       />,
@@ -104,7 +105,7 @@ describe('CharacterCreationWizard Step 7 (Class)', () => {
     const onComplete = vi.fn();
     const { container } = render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={onComplete}
         onCancel={() => {}}
       />,
@@ -123,7 +124,7 @@ describe('CharacterCreationWizard Step 7 (Class)', () => {
   it('选 "法师" + T1 → 显示法师 T1 节点', () => {
     render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={() => {}}
         onCancel={() => {}}
       />,
@@ -137,7 +138,7 @@ describe('CharacterCreationWizard Step 7 (Class)', () => {
   it('选 "战士" + T1 后再选 "无职业" → 清空选择', () => {
     render(
       <CharacterCreationWizard
-        initialStep={7}
+        initialStep={4}
         onComplete={() => {}}
         onCancel={() => {}}
       />,

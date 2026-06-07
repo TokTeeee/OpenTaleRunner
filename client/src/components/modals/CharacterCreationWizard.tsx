@@ -150,12 +150,12 @@ export function CharacterCreationWizard({
     setError(null);
     switch (step) {
       case 1: return; // village select — no LLM call needed
-      case 2: if (!bgDone && bgDialogue.length === 0) startBgDialogue(); else if (!bgDone) continueBgDialogue(); return;
+      case 2: if (!characterName && !appearance) generateNameAndAppearance(); return;  // v0.5.14: 名字+外貌
       case 3: return; // attributes — no LLM call
-      case 4: generateSkills(); return;
-      case 5: generateEquipment(); return;
-      case 6: if (!characterName && !appearance) generateNameAndAppearance(); return;
-      case 7: return; // class pick — no LLM call
+      case 4: return; // v0.5.14: class pick — no LLM call
+      case 5: if (!bgDone && bgDialogue.length === 0) startBgDialogue(); else if (!bgDone) continueBgDialogue(); return;  // v0.5.14: 背景
+      case 6: generateSkills(); return;   // v0.5.14: 技能
+      case 7: generateEquipment(); return; // v0.5.14: 装备
     }
   };
 
@@ -745,84 +745,67 @@ export function CharacterCreationWizard({
 
   const renderStep = () => {
     switch (step) {
-      case 1: return renderVillageSelect();
-      case 2: return renderBackground();
-      case 3: return renderAttributes();
-      case 4: return renderSkills();
-      case 5: return renderEquipment();
-      case 6: return renderReview();
-      case 7: return renderClass();
+      case 1: return renderVillageSelect();        // 出生地
+      case 2: return renderNameAppearance();      // v0.5.14: 名字+外貌 (从 review 抽出)
+      case 3: return renderAttributes();          // 属性
+      case 4: return renderClass();               // v0.5.14: 职业 (从末位挪过来)
+      case 5: return renderBackground();          // v0.5.14: 背景 (从 step 2 挪过来, 用前面收集的 class+attrs)
+      case 6: return renderSkills();              // 技能
+      case 7: return renderEquipment();           // 装备 → 直接 finalize
       default: return null;
     }
   };
 
-  const renderReview = () => (
-      <div className="space-y-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-        <div className="text-center">
-          <h3 className="text-xl font-bold text-gray-200">确认角色</h3>
-          <p className="text-sm text-gray-500 mt-1">检查你的角色设定，确认后进入{worldName}</p>
-        </div>
-
-        <div className="space-y-3 text-sm">
-          <div>
-            <label className="text-xs text-gray-500">姓名</label>
-            <input value={characterName} onChange={(e) => setCharacterName(e.target.value)}
-              maxLength={50}
-              placeholder="输入角色名..."
-              className="w-full mt-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200" />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500">外貌</label>
-            <input value={appearance} onChange={(e) => setAppearance(e.target.value)}
-              placeholder="外貌描述..."
-              className="w-full mt-1 px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200" />
-          </div>
-          <div>
-            <span className="text-xs text-gray-500">出生地</span>
-            <div className="text-gray-300">{selectedVillage?.name || birthVillage.replace(/^custom_/, '')} · {startRegionName}</div>
-          </div>
-          <div>
-            <span className="text-xs text-gray-500">背景</span>
-            <div className="text-gray-300">{background}</div>
-          </div>
-          <div>
-            <span className="text-xs text-gray-500">属性</span>
-            <div className="text-gray-300 grid grid-cols-3 gap-1 mt-1">
-              {ATTRIBUTE_NAMES.map(a => (
-                <span key={a} className="text-xs">{ATTRIBUTE_LABELS[a]}: {attributes[a]}</span>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span className="text-xs text-gray-500">技能 ({skills.length})</span>
-            <div className="text-gray-300">{skills.map(s => `${s.name}(Lv.${s.level})`).join('、') || '无'}</div>
-          </div>
-          {equipmentSummary && (
-            <div>
-              <span className="text-xs text-gray-500">装备</span>
-              <div className="text-gray-300">{equipmentSummary}</div>
-            </div>
-          )}
-        </div>
-
-        {!characterName && (
-          <button onClick={generateNameAndAppearance} disabled={loading} className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
-            AI 自动生成姓名和外貌
-          </button>
-        )}
+  // v0.5.14: 名字 + 外貌 step (从原 renderReview 抽出, 独立为 step 2)
+  const renderNameAppearance = () => (
+    <div className="space-y-4">
+      <div className="text-center">
+        <h3 className="text-xl font-bold text-gray-200">角色名 + 外貌</h3>
+        <p className="text-sm text-gray-500 mt-1">给角色起个名字, 描述外貌 (可留 AI 生成)</p>
       </div>
-    );
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">角色名</label>
+        <input
+          value={characterName}
+          onChange={(e) => setCharacterName(e.target.value)}
+          maxLength={50}
+          placeholder="输入角色名..."
+          data-testid="nameappearance-name"
+          className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200"
+        />
+      </div>
+      <div>
+        <label className="text-xs text-gray-500 mb-1 block">外貌</label>
+        <input
+          value={appearance}
+          onChange={(e) => setAppearance(e.target.value)}
+          placeholder="身高 体型 容貌 穿着等..."
+          data-testid="nameappearance-appearance"
+          className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-gray-200"
+        />
+      </div>
+      {!characterName && (
+        <button
+          onClick={generateNameAndAppearance}
+          disabled={loading}
+          data-testid="nameappearance-auto"
+          className="w-full py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+        >
+          AI 自动生成姓名和外貌
+        </button>
+      )}
+    </div>
+  );
 
   const canNext = () => {
     switch (step) {
-      case 1: return !!birthVillage;
-      case 2: return bgDone && !!background;
-      case 3: return !validateAttributes(attributes);
-      case 4: return skills.length > 0;
-      case 5: return !!equipmentSummary;
-      case 6: return !!characterName;
-      // Step 7 完成条件: 选了 "无职业" 或选了 class + T1 node
-      case 7: return classId === null || (!!classId && classSkills.length > 0 && !pickingT1For);
+      case 1: return !!birthVillage;                       // 出生地
+      case 2: return true;                                  // v0.5.14: 名字+外貌 (留空也允许, finalize 时 fallback)
+      case 3: return !validateAttributes(attributes);      // 属性
+      case 4: return classId === null || (!!classId && classSkills.length > 0 && !pickingT1For); // 职业
+      case 5: return bgDone && !!background;               // 背景
+      case 6: return skills.length > 0;                    // 技能
+      case 7: return !!equipmentSummary;                   // 装备
       default: return true;
     }
   };
