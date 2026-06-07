@@ -65,7 +65,99 @@ afterEach(() => {
 });
 
 describe('v0.5.8 — EXP PATCH failure path', () => {
-  it('skeleton: placeholder', () => {
-    expect(1 + 1).toBe(2);
+  it('PATCH /exp 失败时不写 store, 后续事件仍能触发新 PATCH', async () => {
+    // ---------------------------------------------------------------------
+    // Step 2: 准备 mock server — 第一次返 503, 第二次返 200
+    // ---------------------------------------------------------------------
+    let fetchCalls = 0;
+    const fetchMock = vi.fn(async (url: string, init: RequestInit) => {
+      fetchCalls += 1;
+      if (url.endsWith('/exp') && init.method === 'PATCH') {
+        if (fetchCalls === 1) {
+          return new Response('{"error":"rate_limited"}', {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        // 第二次: 成功
+        return new Response(
+          JSON.stringify({ level: 2, exp: 0, expToNext: 283, unspentAttributePoints: 0 }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      throw new Error(`unexpected fetch call: ${init.method} ${url}`);
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock as unknown as typeof fetch);
+
+    // ---------------------------------------------------------------------
+    // Step 0: 角色 L1 写入 store
+    // ---------------------------------------------------------------------
+    useCharacterStore.setState({ character: makeChar(1), isLoaded: true });
+    expect(useCharacterStore.getState().character!.level).toBe(1);
+
+    // ---------------------------------------------------------------------
+    // Step 1: 注册 EXP 订阅者 (debounce 150ms 加速)
+    // ---------------------------------------------------------------------
+    const unsub = subscribeCharacterExpEvents({ debounceMs: 150 });
+
+    // ---------------------------------------------------------------------
+    // Step 3: emit COMBAT_KILL (5 exp) — 期望 PATCH /exp 失败
+    // ---------------------------------------------------------------------
+    eventBus.emit(EVENTS.COMBAT_KILL, { killerId: 'p1', victimId: 'e1' });
+
+    // ---------------------------------------------------------------------
+    // Step 4: 等 debounce 窗口 + 一次 microtask flush
+    // ---------------------------------------------------------------------
+    await new Promise((r) => setTimeout(r, 250));
+
+    // ---------------------------------------------------------------------
+    // Step 5: 验 fetch 被叫 1 次, 第 1 次 PATCH /exp 返 503
+    // ---------------------------------------------------------------------
+    expect(fetchCalls).toBe(1);
+    const [url1, init1] = (fetchMock.mock.calls[0] as [string, RequestInit]);
+    expect(url1).toBe('http://api.test/api/v1/characters/c1/exp');
+    expect(init1.method).toBe('PATCH');
+    expect(JSON.parse(init1.body as string)).toEqual({ amount: 5, difficulty: 'normal' });
+
+    // ---------------------------------------------------------------------
+    // Step 6: 验失败不写 store (level 仍 1, 失败 amount 被丢弃)
+    // ---------------------------------------------------------------------
+    const c1 = useCharacterStore.getState().character!;
+    expect(c1.level).toBe(1);
+    expect(c1.exp).toBe(0);
+
+    // ---------------------------------------------------------------------
+    // Step 7: emit COMBAT_HIT ×3 (3 exp) — 期望新 PATCH /exp 成功
+    // ---------------------------------------------------------------------
+    for (let i = 0; i < 3; i += 1) {
+      eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: 'p1', targetId: 'e1', damage: 7, isCrit: false });
+    }
+
+    // ---------------------------------------------------------------------
+    // Step 8: 等 debounce 窗口
+    // ---------------------------------------------------------------------
+    await new Promise((r) => setTimeout(r, 250));
+
+    // ---------------------------------------------------------------------
+    // Step 9: 验 fetch 被叫 2 次, 第二次 PATCH /exp 返 200, body amount=3
+    // ---------------------------------------------------------------------
+    expect(fetchCalls).toBe(2);
+    const [url2, init2] = (fetchMock.mock.calls[1] as [string, RequestInit]);
+    expect(url2).toBe('http://api.test/api/v1/characters/c1/exp');
+    expect(init2.method).toBe('PATCH');
+    expect(JSON.parse(init2.body as string)).toEqual({ amount: 3, difficulty: 'normal' });
+
+    // ---------------------------------------------------------------------
+    // Step 10: 验 applyServerExpGrant 写入 (level === 2)
+    // ---------------------------------------------------------------------
+    const c2 = useCharacterStore.getState().character!;
+    expect(c2.level).toBe(2);
+    expect(c2.exp).toBe(0);
+    expect(c2.expToNext).toBe(283);
+
+    // ---------------------------------------------------------------------
+    // Step 11: cleanup
+    // ---------------------------------------------------------------------
+    unsub();
   });
 });
