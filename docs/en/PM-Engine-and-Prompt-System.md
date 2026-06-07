@@ -6,7 +6,7 @@ The PM (Prompt Manager) engine is the core bridge layer between the OpenTaleRunn
 
 **7-Layer Prompt Architecture (GM semantic scaffold)**: The prompt is composed of seven layers stacked in order: World Layer, Character Layer, Scene Layer, Context Layer, Task Instruction Layer, JSON Schema Layer, and Query Protocol Layer. Each layer has a clear responsibility and can be independently trimmed and customized, ensuring the GM receives precisely the minimal yet most accurate context needed to complete narration.
 
-> Implementation note: `PromptBuilder` has 11 `build*` methods (4 private + 7 public), not strictly 1:1 with the "seven layers" (some layers share a method, some methods span multiple layers). The "7-layer" view is GM-perspective semantic grouping, not a code boundary. See §2.1 for the actual method list.
+> Implementation note: `PromptBuilder` (`client/src/services/engine/PromptBuilder.ts`) actually contains **16 `build*` methods** (13 public + 3 private), not strictly 1:1 with the "seven layers" (some layers share a method, some methods span multiple layers). The "7-layer" view is GM-perspective semantic grouping, not a code boundary. See §2.1 for the full method list.
 
 **Multi-Round Query Protocol**: Traditional approaches inject all data (item lists, NPC profiles, chronicles, etc.) at once into each prompt call, wasting large amounts of tokens on data the GM may never need. The multi-round query protocol shifts to "client injects core context + GM queries on demand," compressing the initial prompt from ~2400 tokens to ~1200 tokens (saving approximately 50%), with query round tokens generated only when truly needed.
 
@@ -29,6 +29,30 @@ Every round of GM interaction prompt assembled by the PM engine consists of the 
 | 5 | Task Instruction Layer | List of tasks the GM must complete this round | Scene/Advance | 3-5% |
 | 6 | JSON Schema Layer | Output structure constraint (NarrativeResponse) | Scene/Advance | 3-5% |
 | 7 | Query Protocol Layer | Data query interface description and available query hints | Advance (optional) | 2-5% |
+
+#### 2.1.1 Actual `build*` Methods (16 Total)
+
+The 7 layers are a GM-perspective semantic scaffold. The actual `PromptBuilder.ts` class has 16 `build*` methods (13 public + 3 private). Mapping is not 1:1 — some methods serve multiple layers, some layers share a method.
+
+**Public (13):**
+- `buildWorldLayer(data)` — World Layer (full)
+- `buildCharacterLayer(character)` — Character Layer (full)
+- `buildPartyLayer()` — supplements Character Layer with party info
+- `buildSceneLayer(data)` — Scene Layer (full)
+- `buildGhostNPCText(npc)` — supplements Scene Layer
+- `buildKnownNPCs(data)` — supplements Scene Layer
+- `buildSceneGeneratePrompt(data)` — composite for scene phase
+- `buildActionEvaluatePrompt(data)` — composite for action evaluation
+- `buildNarrativeAdvancePrompt(data, diceResultStr)` — composite for narrative advance
+- `buildGmMemoryRetrievalSection(actionText, data?)` — supplements Context Layer
+- `buildCombinedAdvancePrompt(data, diceResultStr)` — composite for advance phase (full)
+- `buildCombinedAdvanceWithQueriesPrompt(...)` — variant with query round
+- `buildCombinedAdvanceWithBudget(...)` — variant with token budget
+
+**Private (3):**
+- `buildGhostEncounterHint(data)` — used by Scene Layer for ghost hint
+- `buildCharacterLayerSlim(character)` — slim variant for token-constrained cases
+- `buildSceneLayerSlim(data)` — slim variant for token-constrained cases
 
 **World Layer** (`PromptBuilder.buildWorldLayer()`): Contains the GM identity declaration, world lore text (from `worldStore.worldLore`), current era (`currentEra`), world situation (`milestones`), recent developments (`recentChronicle`), current region status (`regions`), and 9 narrative style guidelines. Falls back to a short hardcoded text when offline.
 

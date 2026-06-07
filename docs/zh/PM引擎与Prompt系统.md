@@ -30,7 +30,31 @@ PM 引擎的每一轮 GM 交互 Prompt 由 `PromptBuilder` 类的 **11 个 `buil
 | 4 | 上下文层 | 位置锚点 + 近期对话历史 | Scene/Advance | 20-40% |
 | 5 | 任务指令层 | 本轮 GM 需完成的任务列表 | Scene/Advance | 3-5% |
 | 6 | JSON Schema 层 | 输出结构约束（NarrativeResponse） | Scene/Advance | 3-5% |
-| 7 | 查询协议层 | 数据查询接口说明和可用查询提示 | Advance（可选） | 2-5% |
+| 7 | 查询协议层 | 数据查询接口描述和可用查询提示 | Advance（可选） | 2-5% |
+
+#### 2.1.1 实际的 `build*` 方法（共 16 个）
+
+"七层"是 GM 视角的语义脚手架。实际 `PromptBuilder.ts` 类有 16 个 `build*` 方法（13 public + 3 private）。映射并非 1:1 —— 部分方法服务多层，部分层共用一个方法。
+
+**公开（13）：**
+- `buildWorldLayer(data)` — 世界层（完整）
+- `buildCharacterLayer(character)` — 角色层（完整）
+- `buildPartyLayer()` — 角色层补充队伍信息
+- `buildSceneLayer(data)` — 场景层（完整）
+- `buildGhostNPCText(npc)` — 场景层补充
+- `buildKnownNPCs(data)` — 场景层补充
+- `buildSceneGeneratePrompt(data)` — Scene 阶段组合 prompt
+- `buildActionEvaluatePrompt(data)` — 行为评估组合 prompt
+- `buildNarrativeAdvancePrompt(data, diceResultStr)` — 叙事推进组合 prompt
+- `buildGmMemoryRetrievalSection(actionText, data?)` — 上下文层补充
+- `buildCombinedAdvancePrompt(data, diceResultStr)` — Advance 阶段组合（完整）
+- `buildCombinedAdvanceWithQueriesPrompt(...)` — 带 query round 的变体
+- `buildCombinedAdvanceWithBudget(...)` — 带 token budget 的变体
+
+**私有（3）：**
+- `buildGhostEncounterHint(data)` — 用于场景层的 ghost 提示
+- `buildCharacterLayerSlim(character)` — 角色层瘦版本（受 token 限制时）
+- `buildSceneLayerSlim(data)` — 场景层瘦版本（受 token 限制时）
 
 **世界层** (`PromptBuilder.buildWorldLayer()`)：包含 GM 身份声明、世界观文本（来自 `worldStore.worldLore`）、当前时代（`currentEra`）、世界局势（`milestones`）、近期动态（`recentChronicle`）、当前区域状态（`regions`）以及 9 条叙事风格指南。离线时回退到硬编码的简短文本。
 

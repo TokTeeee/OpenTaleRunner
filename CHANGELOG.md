@@ -1,6 +1,43 @@
 # Changelog
 
-## v0.5.8 — 2026-06-07 (v0.5.x 收尾 — 文档 / 孤儿 action / 失败链路 e2e)
+## v0.5.10 — 2026-06-07 (5 项代码小修: validateOverride / JWT username / SocialPanel 大图 / 文档对齐)
+
+5 件独立小改,每件都有单测/集成测试覆盖。
+
+### What's in this release
+
+**#2 #3 — 拆出独立 `validateOverride(o, slot)` 函数**
+
+`PromptBuilder` 内部新增 `validateOverride(o: PromptOverride, slot: string): string | null`, 与 `applyOverrides` 解耦. 校验两步叠加: `queryProtocol` slot 走白名单 (`SCENE:` / `NPC:` / `QUEST:` / `INVENTORY:` / `COMBAT:` / `TIME:`), 任意 slot content ≤ 2000 字符. 错误由 `applyOverrides` 循环里跳过该 override + console.warn.
+
+测试: `client/tests/services/engine/validateOverride.test.ts` 7 个 case (whitelist 拒 / whitelist 收 / length 拒 / 2000 边界 / narrative 自由 / jsonSchema 强制 replace / 优先级)
+
+**#7 — server `multiplayer_router` 从 JWT 解析 username**
+
+`auth_router._make_token(player_id, username)` payload 加 `username` claim; register / login / refresh 三处都传 username. `routers/deps.py` 新增 `get_current_username` dependency, 从 token 取 username, fallback 到 sub. `multiplayer_router.create_room` 改用新 dependency, 替代原 `player_id` 硬编码.
+
+修复: refresh 端点原本 `username=""`, 改为从旧 token 解出 username, 是 pre-existing bug 的副带修复.
+
+测试: `server/tests/test_multiplayer_jwt_username.py` 1 个集成 case 验证 token 含 username claim + `create_room` 实际拿 username 当 `player_name`.
+
+附带: `conftest.py` 把测试时 `SERVICE_RATE_LIMIT` 提到 9999, 避免 v0.5.10 加 1 test 触发 60/60s 限流 (env-only, 不影响 production).
+
+**#8 — SocialPanel 大图接 imageGen**
+
+`SocialPanel.tsx:170` 静态占位改用 `npcPortraits[selectedNpc.npcId]` (header 已有 imageGen URL) + fallback 字符 gradient. 复用 header imageGen fetch, 不发新请求. 加 `data-testid="npc-portrait-large"`.
+
+**#21 — 文档 "11 段" 修正到 "16 个 build\* 方法"**
+
+之前 "11 build\* methods (4 private + 7 public)" 是计划期估算. 实际 `PromptBuilder.ts` 有 16 个 `build\*` 方法 (13 public + 3 private). 修正 `docs/en/PM-Engine-and-Prompt-System.md` 和 `docs/zh/PM引擎与Prompt系统.md` §2.1.1, 列出全部 16 个方法名 + 责任范围.
+
+### 不在范围
+
+- v0.5.9 死债文档同步 9 件 (单独 tag `v0.5.9`)
+- v0.5.11 useActionSubmit 拆 sub-hook
+- v0.5.12 backpack_full on-demand
+- v0.5.13 applyConsequences 按业务域拆
+
+## v0.5.9 — 2026-06-07 (死债文档同步 9 件)
 
 Closes the last v0.5.x parking lot items in one small PR. No engine /
 combat code changes; no public API changes for end users.
