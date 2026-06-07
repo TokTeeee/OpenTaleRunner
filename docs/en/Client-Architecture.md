@@ -109,7 +109,6 @@ Server Interfaces
 2. `APIClient.ts` and `MultiplayerAPI.ts` each maintain their own request encapsulation, auth, and JSON adaptation, resulting in duplicated network layer logic.
 3. Authentication token ownership is unclear — some modules read it as a `settingsStore` field; the "auth session" has not been formalized as an independent state layer.
 4. The main chunk exceeds 500 kB; dynamic imports within `SyncServices.ts` do not produce actual bundle-splitting benefits because the referenced modules are statically imported elsewhere.
-5. `CacheManager.ts` remains a placeholder system — a decision is needed on formal integration or cleanup.
 
 **Evolution Suggestions:**
 
@@ -206,7 +205,6 @@ Server Interfaces
 | Character Card Exporter | `client/src/services/character/CharacterCardExporter.ts` | Exports character snapshots from stores to a unified character card format | `characterStore`, `npcStore` | For cross-world / cross-storybook migration |
 | Character Card Importer | `client/src/services/character/CharacterCardImporter.ts` | Validates and imports character cards, handling storybook compatibility | Various stores | Includes version and basic validity checking |
 | Event Bus | `client/src/services/event/EventBus.ts` | Publish/subscribe cross-module events | `services/event/events.ts` | Used for network online status, world sync notifications, etc. |
-| Cache Manager | `client/src/services/cache/CacheManager.ts` | Provides generic caching capability | Not yet integrated | Placeholder system; decision needed on integration or cleanup |
 
 ### 2.8 System Boundary Assessment
 
@@ -214,7 +212,7 @@ Server Interfaces
 2. `usePMEngine.ts` currently bears excessive orchestration responsibility and is the top-priority core system for further splitting.
 3. `APIClient.ts` and `MultiplayerAPI.ts` each maintain their own request, auth, and error handling — the network layer is not fully consolidated.
 4. The responsibility boundary between `SyncManager.ts` and `SyncServices.ts` is clear (world sync vs. room/real-time player) and should be preserved.
-5. `CacheManager.ts`, auth token ownership, and the unification approach for multiplayer API vs. generic API are the most apparent architectural improvement targets.
+5. Auth token ownership and the unification approach for multiplayer API vs. generic API are the most apparent architectural improvement targets.
 
 ---
 
