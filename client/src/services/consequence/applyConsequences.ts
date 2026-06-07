@@ -7,6 +7,7 @@ import { useItemRegistryStore } from '../../stores/itemRegistryStore';
 import { generateLootAffixes } from './lootAffixes';
 import { buildItemFromGained, syncBackpackFromRegistry, findInRegistryByCharacter } from './helpers';
 import { applyAttributes } from './applyAttributes';
+import { applyConditions } from './applyConditions';
 import type { RNG } from '../../data/affixPool';
 
 /**
@@ -28,15 +29,8 @@ export function applyConsequences(cons: ConsequenceData, opts?: { rng?: RNG }): 
     applyAttributes(cons);
   }
 
-  if (cons.conditionsAdded?.length) {
-    for (const condition of cons.conditionsAdded) {
-      charStore.addCondition(condition);
-    }
-  }
-  if (cons.conditionsRemoved?.length) {
-    for (const condition of cons.conditionsRemoved) {
-      charStore.removeCondition(condition);
-    }
+  if (cons.conditionsAdded?.length || cons.conditionsRemoved?.length) {
+    applyConditions(cons);
   }
 
   if (cons.skillsModified?.length) {
