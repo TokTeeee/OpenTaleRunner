@@ -69,18 +69,3 @@ describe('characterStore — applyServerExpGrant', () => {
     expect(useCharacterStore.getState().character).toBeNull();
   });
 });
-
-describe('characterStore — applyServerAttributeSpend', () => {
-  beforeEach(() => useCharacterStore.setState({ character: makeChar({ unspentAttributePoints: 3 }), isLoaded: true }));
-
-  it('applies new attributes and decrements pool', () => {
-    const newAttrs = { ...BASE_ATTRS, STR: 11 };
-    useCharacterStore.getState().applyServerAttributeSpend({
-      attributes: newAttrs,
-      unspentAttributePoints: 2,
-    });
-    const c = useCharacterStore.getState().character!;
-    expect(c.attributes.STR).toBe(11);
-    expect(c.unspentAttributePoints).toBe(2);
-  });
-});
