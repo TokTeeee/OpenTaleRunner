@@ -24,7 +24,55 @@ import { TierUnlockModal } from '../../src/components/modals/TierUnlockModal';
 import type { Character } from '../../src/types/character';
 import { resetClientStores } from '../utils/resetStores';
 
-// TODO: 测试内容将在 Task 2-3 补全
+// -------------------------------------------------------------------------
+// 测试夹具
+// -------------------------------------------------------------------------
+
+function makeChar(level: number, classId: string | null, picked: string[]): Character {
+  return {
+    characterId: 'c1',
+    playerId: 'p1',
+    name: 'Test',
+    race: '人类',
+    background: '',
+    appearance: '',
+    attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+    skills: [],
+    inventory: {
+      equipped: { weapon: null, armor: null, accessory: null },
+      backpack: [],
+      currency: { gold: 0, silver: 0, copper: 0 },
+    },
+    hp: 20,
+    maxHp: 20,
+    vital: { hunger: 0, thirst: 0, fatigue: 0, hygiene: 0, morale: 0, wound: 0, temperature: 37, encumbrance: 0 },
+    reputation: { goodness: 0, violence: 0, lawfulness: 0, regional: {} },
+    conditions: [],
+    joinedRegion: 'r',
+    joinedWorldDay: 1,
+    currentLocalDay: 1,
+    lastActionTime: '',
+    recentHistory: [],
+    level,
+    exp: 0,
+    expToNext: 100,
+    unspentAttributePoints: 0,
+    classId,
+    classSkills: picked.map((nodeId) => ({ classId: classId || '', nodeId, unlockedAt: 0 })),
+  };
+}
+
+beforeEach(() => {
+  resetClientStores();
+  useCombatStore.setState({ phase: 'idle', isPlayerTurn: false, active: false } as any);
+  useAuthStore.setState({ token: 'tk' });
+  useSettingsStore.setState({ server: { endpoint: 'http://api.test' } } as never);
+});
+
+afterEach(() => {
+  eventBus.clear();
+  vi.restoreAllMocks();
+});
 
 describe('v0.5.7 — LevelUp 端到端链路', () => {
   it('skeleton: placeholder', () => {
