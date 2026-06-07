@@ -1,10 +1,12 @@
-﻿# PM Engine and Prompt System
+# PM Engine and Prompt System
 
 ## 1. Introduction
 
 The PM (Prompt Manager) engine is the core bridge layer between the OpenTaleRunner client and the LLM (GM). It assembles, sends, and parses prompts, injecting server-side world data and client-side character data into the GM in a unified manner, ensuring that every player action receives a coherent, accurate narrative response.
 
-**7-Layer Prompt Architecture**: The prompt is composed of seven layers stacked in order: World Layer, Character Layer, Scene Layer, Context Layer, Task Instruction Layer, JSON Schema Layer, and Query Protocol Layer. Each layer has a clear responsibility and can be independently trimmed and customized, ensuring the GM receives precisely the minimal yet most accurate context needed to complete narration.
+**7-Layer Prompt Architecture (GM semantic scaffold)**: The prompt is composed of seven layers stacked in order: World Layer, Character Layer, Scene Layer, Context Layer, Task Instruction Layer, JSON Schema Layer, and Query Protocol Layer. Each layer has a clear responsibility and can be independently trimmed and customized, ensuring the GM receives precisely the minimal yet most accurate context needed to complete narration.
+
+> Implementation note: `PromptBuilder` has 11 `build*` methods (4 private + 7 public), not strictly 1:1 with the "seven layers" (some layers share a method, some methods span multiple layers). The "7-layer" view is GM-perspective semantic grouping, not a code boundary. See §2.1 for the actual method list.
 
 **Multi-Round Query Protocol**: Traditional approaches inject all data (item lists, NPC profiles, chronicles, etc.) at once into each prompt call, wasting large amounts of tokens on data the GM may never need. The multi-round query protocol shifts to "client injects core context + GM queries on demand," compressing the initial prompt from ~2400 tokens to ~1200 tokens (saving approximately 50%), with query round tokens generated only when truly needed.
 

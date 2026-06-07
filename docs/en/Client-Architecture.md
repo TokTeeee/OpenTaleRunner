@@ -144,7 +144,7 @@ Server Interfaces
 | Party state | `client/src/stores/partyStore.ts` | Manages party members, loyalty, XP, combat bonuses, and support ability queries | `members`, `maxSize`, `getCombatBonus` | Provides shared facts for judgment, travel, and party panel |
 | Combat state | `client/src/stores/combatStore.ts` | Manages v0.4 combat system's 5-phase state machine (idle / setup / rolling / acting / resolution / ended) + ACT queue + QTE timing | `session`, `currentRound`, `pendingActions` | Only holds values during combat; cleared on end |
 | Item registry | `client/src/stores/itemRegistryStore.ts` | Maintains v0.4 affix pool runtime registry (prefix/suffix + weights) for `applyConsequences` loot path queries | `affixPools`, `drawAffixes` | Used with `data/affixPools.ts` data layer |
-| Codex state | `client/src/stores/codexStore.ts` | Manages v0.4 Codex entries (npc/item/event/location/faction/lore 6 categories) + signature dedup + unlock time | `entries`, `unlockedAt` | Uses `codexSignature` pure function to prevent duplicates |
+| Codex state | `client/src/stores/codexStore.ts` | Manages Codex entries with signature dedup + unlock time; v0.5 simplified to flat `entries` list (no hardcoded categories) | `entries`, `unlockedAt` | Uses `codexSignature` pure function to prevent duplicates |
 
 ### 2.3 Business Orchestration Systems (Hooks)
 
@@ -445,14 +445,16 @@ ba3fbe6  useActionSubmit + RightPanel + App + SocialPanel integration
 + v0.4 ui (tokens / ItemChip / ItemCardRow / ItemDetailPanel / ItemEffectList)
 ```
 
-### 6.6 Known Architecture Debt (To Be Resolved After v0.4)
+### 6.6 Known Architecture Debt
 
 - `usePMEngine` orchestration layer still has ~130 un-split lines (mainly PM error handling + idle state machine) — future
-- `applyConsequences` is still a God function; after v0.4 affix injection, line count grew; needs split into `applyItemsConsequences` / `applyStateConsequences` / `applyReputationConsequences` — v0.5
-- `combatStore` and `combatEngine` have partial logic duplication (Engine encapsulates state progression, but store also holds state for UI sync) — future
-- `itemRegistryStore` and `data/affixPools.ts` have overlapping responsibilities (runtime cache vs static data) — future
-- `codexStore` and `codexSignature` 6 categories hardcoded (npc/item/event/location/faction/lore) should be configurable — future
+- `applyConsequences` is still a God function; after v0.4 affix injection, line count grew; needs split into `applyItemsConsequences` / `applyStateConsequences` / `applyReputationConsequences` — v0.5 (v0.5.13 business domain split PR)
 - No HMR/hot-reload architecture; prompt template changes require restart — not yet implemented
+
+> Stale debt items resolved in v0.5:
+> - `combatStore` and `combatEngine`: not actually duplicated (store holds state, engine is pure reducer, different responsibilities)
+> - `itemRegistryStore` and `data/affixPools.ts`: not actually overlapping (runtime cache vs static data)
+> - `codexStore` 6 categories: simplified to flat `entries` list in v0.5 (no hardcoded categories)
 
 ## Current v0.4 Metrics
 

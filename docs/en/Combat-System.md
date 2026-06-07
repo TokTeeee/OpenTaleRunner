@@ -223,10 +223,11 @@ Only accessible from the title page. Monster factories `goblinScout` / `goblinWa
 - `9c5fdb8` docs(zh): add v0.4 combat system user manual
 - And subsequent combat engine / UI / debug / toolcall integration commits
 
-### 5.6 Known Constraints (To be Resolved After v0.4)
+### 5.6 Known Constraints
 
-- `sceneModifier` always hardcoded to 0 — not yet implemented
 - Elemental resistance recorded only, not participating in judgment — Listed in v0.6
-- 13 effectType compatibility map (`effectTypeCompat`) is a temporary solution; will be unified into `ActionResolver` after v0.6
 - Debug combat monster factories don't change with LLM tuning, suitable for regression but not real combat balance reflection
+
+> `sceneModifier` 已在 v0.5 接入 (PMEngine.ts:346/413 读 `scene_modifier`)。
+> `effectTypeCompat` 13 映射已在 v0.5 完成 + `ItemCallbackRouter` 消费 (`client/src/services/combat/effectTypeCompat.ts`)。
 

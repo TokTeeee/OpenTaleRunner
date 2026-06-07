@@ -146,11 +146,11 @@ In the longer term, we intend to open up lineage and race systems, introducing n
 
 ## 4. v0.4 Increment
 
-v0.4 has three crossover points with the character system: v0.4 Codex treats "character" as one of 6 categories (player scope); the combat system reads characterStore's HP/stamina/status fields; the NPC memory system writes and retrieves by `entityId='character:<id>'`. v0.4 still does not introduce the level-XP system.
+v0.4 has three crossover points with the character system: v0.4 Codex records player-scope entries (no longer split into 6 categories; `codexStore` simplified to a single `entries` list in v0.5); the combat system reads characterStore's HP/stamina/status fields; the NPC memory system writes and retrieves by `entityId='character:<id>'`. v0.4 still does not introduce the level-XP system.
 
 ### 4.1 Character in Codex (player scope)
 
-- v0.4 `codexStore`'s 6 categories include `player`, recording player "milestone snapshots" at different time points (e.g., first BOSS defeat / first hidden area entry / first bond formation with NPC)
+- v0.5 `codexStore` no longer splits entries into hardcoded categories; `entries` is a flat list with `signature` field for dedup
 - Trigger timing: `applyConsequences` detects `reputationChange` crossing thresholds / `conditionsAdded` containing key conditions, then calls `codexSignature` to unlock
 - Key commits: `c0664c6` codexStore, `e34676b` codexSignature, `e379a86` applyConsequences trigger
 
