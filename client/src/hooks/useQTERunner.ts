@@ -24,6 +24,7 @@ import { useQTEStore } from '../stores/qteStore';
 import { useCombatStore } from '../stores/combatStore';
 import { getSharedResolver, type QTEResult } from '../services/combat/ActionResolver';
 import { QTE_NOOP, computeAttackRounds } from '../services/combat/QTELayer';
+import { getAbility } from '../data/abilities';
 import { useCharacterStore } from '../stores/characterStore';
 import { useGameStore } from '../stores/gameStore';
 import { logger } from '../utils/logger';
@@ -74,6 +75,31 @@ export function useQTERunner(opts: UseQTERunnerOptions = {}) {
         // 保留攻击的 agility 信息 (debug / log)
         void computeAttackRounds(agilityDelta);
         logger.info('QTERunner', `QTE result: ${qteResult.type} acc=${qteResult.accuracy.toFixed(2)} mod=${qteResult.modifier.toFixed(2)}`);
+      }
+      // v0.6.2: ability QTE 路由 — battle_art 走 timing, magic/prayer 走 typing
+      else if (qteEnabled && action.kind === 'ability') {
+        const ability = getAbility(action.abilityId);
+        if (ability) {
+          const store = useQTEStore.getState();
+          const caster = state.combatants[action.userId];
+          if (caster) {
+            if (ability.school === 'battle_art') {
+              // 战技走 timing bar (按 DEX 算 rounds)
+              const agilityDelta = caster.attributes.DEX - 10;
+              qteResult = await store.runAttack({
+                agilityDelta, playerId: action.userId, targetId: action.targetId ?? '',
+              });
+            } else {
+              // 魔法/祷告走 typing, spell 用 visualTag 或 name
+              const spellText = ability.description.visualTag || ability.name;
+              qteResult = await store.runMagic({
+                spell: spellText, caster,
+                playerId: action.userId, targetId: action.targetId ?? null,
+              });
+            }
+            logger.info('QTERunner', `ability QTE (${ability.school}) result: ${qteResult.type} acc=${qteResult.accuracy.toFixed(2)} mod=${qteResult.modifier.toFixed(2)}`);
+          }
+        }
       }
 
       // 2. 走 ActionResolver
