@@ -4,12 +4,14 @@
  * 它描述的是“当前操控角色”，而不是角色列表或世界中的其它实体。
  */
 import { create } from 'zustand';
-import type { Character, Attributes, Skill, Inventory, VitalStats, Reputation, HistoryEntry, Currency, ClassSkillNode } from '../types/character';
+import type { Character, Attributes, Skill, Inventory, VitalStats, Reputation, HistoryEntry, Currency, ClassSkillNode, ElementalResistances } from '../types/character';
+import type { Element } from '../types/ability';
 import type { Item } from '../types/item';
 import { systemHooks } from '../services/hooks/SystemHooks';
 import type { GameSnapshot } from '../types/hooks';
 import { eventBus } from '../services/event/EventBus';
 import { EVENTS } from '../services/event/events';
+import { getAbility } from '../data/abilities';
 
 function buildHookSnapshot(character: Character): GameSnapshot {
   return {
@@ -57,6 +59,13 @@ interface CharacterState {
   applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number }) => void;
   /** v0.5.3 — 设置角色职业与已解锁技能 (本地 + 调用方负责 PATCH /class 同步服务端) */
   setClass: (classId: string | null, classSkills: ClassSkillNode[]) => void;
+  // ---- v0.6.2 ability / resistance mutators ----
+  /** 学习 ability (幂等, 按 ability 的真实 school). */
+  learnAbility: (abilityId: string) => void;
+  /** 遗忘 ability. */
+  forgetAbility: (abilityId: string) => void;
+  /** 设置元素抗性, 钳制到 [-100, 100]. */
+  setResistance: (element: Element, value: number) => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
@@ -233,6 +242,46 @@ export const useCharacterStore = create<CharacterState>((set) => ({
           ...s.character,
           classId,
           classSkills,
+        },
+      };
+    }),
+
+  // -------------------------------------------------------------------------
+  // v0.6.2 — Ability / resistance mutators
+  // -------------------------------------------------------------------------
+
+  learnAbility: (abilityId) =>
+    set((s) => {
+      if (!s.character) return s;
+      if (s.character.learnedAbilities.some((la) => la.abilityId === abilityId)) return s;
+      const school = getAbility(abilityId)?.school ?? 'magic';
+      return {
+        character: {
+          ...s.character,
+          learnedAbilities: [...s.character.learnedAbilities, { abilityId, school, learnedAt: Date.now() }],
+        },
+      };
+    }),
+
+  forgetAbility: (abilityId) =>
+    set((s) => {
+      if (!s.character) return s;
+      return {
+        character: {
+          ...s.character,
+          learnedAbilities: s.character.learnedAbilities.filter((la) => la.abilityId !== abilityId),
+        },
+      };
+    }),
+
+  setResistance: (element, value) =>
+    set((s) => {
+      if (!s.character) return s;
+      const clamped = Math.max(-100, Math.min(100, value));
+      return {
+        character: {
+          ...s.character,
+          elementalResistances: { ...s.character.elementalResistances, [element as keyof ElementalResistances]: clamped },
         },
       };
     }),
