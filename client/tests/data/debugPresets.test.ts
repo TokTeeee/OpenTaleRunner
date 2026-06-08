@@ -8,9 +8,9 @@ import {
 } from '../../src/data/debugPresets';
 
 describe('debugPresets', () => {
-  it('4 个预设齐, 难度分别对应 trivial/normal/hard/deadly', () => {
-    expect(DEBUG_BATTLES).toHaveLength(4);
-    expect(DEBUG_BATTLES.map((b) => b.difficulty)).toEqual(['trivial', 'normal', 'hard', 'deadly']);
+  it('5 个预设齐, 难度分别对应 trivial/normal/hard/deadly/ability', () => {
+    expect(DEBUG_BATTLES).toHaveLength(5);
+    expect(DEBUG_BATTLES.map((b) => b.difficulty)).toEqual(['trivial', 'normal', 'hard', 'deadly', 'ability']);
   });
 
   it('每张卡 1-3 个敌人, 所有敌人 side=enemy', () => {
@@ -55,5 +55,39 @@ describe('debugPresets', () => {
     expect(t.hp).toBe(60);
     expect(t.attributes.STR).toBe(18);
     expect(t.equipped.weapon?.effects[0]?.value).toBe(8);
+  });
+
+  // -----------------------------------------------------------------
+  // v0.6.2 — mage 变体
+  // -----------------------------------------------------------------
+
+  it('v0.6.2: debug_ability 预设存在, playerOptions.learnedAbilities 含 fireBolt', () => {
+    const ab = DEBUG_BATTLES.find((b) => b.id === 'debug_ability');
+    expect(ab).toBeDefined();
+    expect(ab?.difficulty).toBe('ability');
+    expect(ab?.playerOptions?.learnedAbilities).toEqual([
+      { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+    ]);
+    expect(ab?.playerOptions?.maxMp).toBe(20);
+  });
+
+  it('v0.6.2: createDebugPlayer(options) 注入 maxMp, 玩家 name 变"测试法师"', () => {
+    const mage = createDebugPlayer({
+      maxMp: 20,
+      learnedAbilities: [{ abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 }],
+    });
+    expect(mage.name).toBe('测试法师');
+    expect(mage.mp).toBe(20);
+    expect(mage.maxMp).toBe(20);
+    // 法师属性: INT 16
+    expect(mage.attributes.INT).toBe(16);
+  });
+
+  it('v0.6.2: createDebugPlayer() 无参数时 = 战士 (name=测试勇者, mp=0)', () => {
+    const w = createDebugPlayer();
+    expect(w.name).toBe('测试勇者');
+    expect(w.mp).toBe(0);
+    expect(w.maxMp).toBe(0);
+    expect(w.attributes.STR).toBe(14);
   });
 });

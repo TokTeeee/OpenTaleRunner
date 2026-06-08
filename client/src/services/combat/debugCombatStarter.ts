@@ -7,6 +7,7 @@
 import { toolCallRegistry } from '../llm/ToolCallRegistry';
 import { useCombatStore, INITIAL_COMBAT_STATE } from '../../stores/combatStore';
 import { useGameStore } from '../../stores/gameStore';
+import { useCharacterStore } from '../../stores/characterStore';
 import { registerCombatTools } from './combatTools';
 import type { Combatant } from './types';
 import type { DebugBattle } from '../../data/debugPresets';
@@ -25,12 +26,27 @@ export async function startDebugBattle(preset: DebugBattle): Promise<void> {
   useGameStore.getState().setDebugMode(true);
   useGameStore.getState().setPhase('playing');
 
+  // 1b. v0.6.2 — 若 preset 声明了 playerOptions (含 learnedAbilities), 同步写入 characterStore
+  //     这样 ActionMenu 的"能力"按钮才能找到对应的 ability 列表
+  if (preset.playerOptions?.learnedAbilities && preset.playerOptions.learnedAbilities.length > 0) {
+    const currentChar = useCharacterStore.getState().character;
+    if (currentChar) {
+      useCharacterStore.getState().setCharacter({
+        ...currentChar,
+        learnedAbilities: [...preset.playerOptions.learnedAbilities],
+        defaultLearnedAbilities: preset.playerOptions.learnedAbilities.map((la) => la.abilityId),
+        maxMp: preset.playerOptions.maxMp ?? currentChar.maxMp,
+        mp: preset.playerOptions.maxMp ?? currentChar.mp,
+      });
+    }
+  }
+
   // 2. 直接 dispatch startCombat, 跳过 LLM
   const results = await toolCallRegistry.dispatch([{
     name: 'startCombat',
     arguments: {
       combatId: preset.id,
-      player: createDebugPlayer(),
+      player: createDebugPlayerFactory(preset.playerOptions),
       party: [],
       enemies: [...preset.enemies],
       recommendedDifficulty: preset.difficulty,

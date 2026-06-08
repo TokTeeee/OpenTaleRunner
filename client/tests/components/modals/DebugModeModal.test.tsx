@@ -26,15 +26,16 @@ describe('DebugModeModal', () => {
     _resetCombatEngine();
   });
 
-  it('open=true: 渲染 4 张卡 (每档 1 张)', () => {
+  it('open=true: 渲染 5 张卡 (4 档 + 1 能力测试)', () => {
     render(<DebugModeModal open={true} onClose={() => {}} />);
     expect(screen.getByTestId('debug-modal')).toBeInTheDocument();
     const cards = screen.getAllByTestId(/^debug-card-/);
-    expect(cards).toHaveLength(4);
+    expect(cards).toHaveLength(5);
     expect(screen.getByTestId('debug-card-trivial')).toBeInTheDocument();
     expect(screen.getByTestId('debug-card-normal')).toBeInTheDocument();
     expect(screen.getByTestId('debug-card-hard')).toBeInTheDocument();
     expect(screen.getByTestId('debug-card-deadly')).toBeInTheDocument();
+    expect(screen.getByTestId('debug-card-ability')).toBeInTheDocument();  // v0.6.2
   });
 
   it('open=false: 不渲染 (return null)', () => {

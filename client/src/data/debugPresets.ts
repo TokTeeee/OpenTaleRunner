@@ -1,40 +1,57 @@
 /**
- * 调试模式预设战斗数据 (4 档难度, 各 1 个)
+ * 调试模式预设战斗数据 (4 档难度 + 1 能力测试, 各 1 个)
  *
  * 开发测试用. 不动 characterStore, 全部走 toolcall dispatch.
  * 详细见 spec: docs/superpowers/specs/2026-06-04-combat-debug-design.md
+ *
+ * v0.6.2: 新增 debug_ability 战斗 — mage + fireBolt 预学, MP 足够 (20/20)
  */
 import type { Combatant } from '../services/combat/types';
 import type { Item } from '../types/item';
 import { ZERO_RESISTANCES } from '../types/character';
+import type { LearnedAbility } from '../types/character';
 
 // ============================================================
 // 类型
 // ============================================================
 
-export type DebugDifficulty = 'trivial' | 'normal' | 'hard' | 'deadly';
+export type DebugDifficulty = 'trivial' | 'normal' | 'hard' | 'deadly' | 'ability';
+
+export interface DebugPlayerOptions {
+  /** v0.6.2 — 预学习的 ability 列表 (空 = 默认战士, 有 = 法师/祭司变体) */
+  learnedAbilities?: LearnedAbility[];
+  /** v0.6.2 — MP 最大值 (默认 0 = 战士) */
+  maxMp?: number;
+}
 
 export interface DebugBattle {
-  readonly id: 'debug_trivial' | 'debug_normal' | 'debug_hard' | 'debug_deadly';
+  readonly id: 'debug_trivial' | 'debug_normal' | 'debug_hard' | 'debug_deadly' | 'debug_ability';
   readonly difficulty: DebugDifficulty;
   readonly title: string;
   readonly description: string;
   readonly enemies: readonly Combatant[];
   readonly expectedOutcome: string;
+  /** v0.6.2 — 战斗玩家配置 (默认 = 测试勇者) */
+  readonly playerOptions?: DebugPlayerOptions;
 }
 
 // ============================================================
 // 调试玩家 (合成, 不动 characterStore)
 // ============================================================
 
-export function createDebugPlayer(): Combatant {
+export function createDebugPlayer(options: DebugPlayerOptions = {}): Combatant {
+  const maxMp = options.maxMp ?? 0;
+  const learnedAbilities: LearnedAbility[] = options.learnedAbilities ?? [];
   return {
     id: 'debug_player',
-    name: '测试勇者',
+    name: learnedAbilities.length > 0 ? '测试法师' : '测试勇者',
     side: 'player',
-    attributes: { STR: 14, DEX: 16, CON: 12, INT: 10, WIS: 15, CHA: 13 },
+    attributes: learnedAbilities.length > 0
+      ? { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 15, CHA: 13 }  // 法师: INT 16
+      : { STR: 14, DEX: 16, CON: 12, INT: 10, WIS: 15, CHA: 13 },  // 战士: STR 14
     hp: 30, maxHp: 30,
     ap: 6, maxAp: 6,
+    mp: maxMp, maxMp,
     conditions: [],
     isDead: false,
     isFleeing: false,
@@ -46,6 +63,10 @@ export function createDebugPlayer(): Combatant {
       accessory: null,
     },
     elementalResistances: { ...ZERO_RESISTANCES },
+    // v0.6.2 字段 (战斗 Combatant 形态, 不走 characterStore, 所以 learnedAbilities 留作占位 — 实际由 createDebugBattleMage 在战斗初始化时通过 startCombat 注入)
+    ...(learnedAbilities.length > 0
+      ? {}
+      : {}),
   };
 }
 
@@ -135,5 +156,19 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
     description: '高 HP 强攻 Boss, 测 deadly 档失败惩罚',
     enemies: [trollChief()],
     expectedOutcome: '玩家 HP=0, 触发 survives=true + perma-wound',
+  },
+  {
+    id: 'debug_ability',
+    difficulty: 'ability',
+    title: '🔥 法师火球 (v0.6.2)',
+    description: '测试法师: INT 16, MP 20/20, 预学 fireBolt (1d10+INT 火焰伤害), 单只弱敌',
+    enemies: [goblinScout()],
+    expectedOutcome: 'ActionMenu 显示"能力"按钮 → SkillPicker → 火球 → QTE 命中 → 哥布林 HP -10~20 火焰伤害',
+    playerOptions: {
+      maxMp: 20,
+      learnedAbilities: [
+        { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+      ],
+    },
   },
 ] as const;

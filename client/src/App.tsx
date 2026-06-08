@@ -326,6 +326,8 @@ export default function App() {
       elementalResistances: { ...ZERO_RESISTANCES },
       learnedAbilities: [],
       defaultLearnedAbilities: [],
+      // v0.6.2: MP (默认 0 = 战士, 法师/祭司通过 setCharacter 注入)
+      mp: 0, maxMp: 0,
       currentCoordinates: quickStartLocation?.coordinates
         ? { x: quickStartLocation.coordinates.x || 0, y: 0, z: quickStartLocation.coordinates.z || 0 }
         : { x: 0, y: 0, z: 0 },

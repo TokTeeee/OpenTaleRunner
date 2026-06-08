@@ -369,6 +369,8 @@ export function CharacterCreationWizard({
         elementalResistances: { ...ZERO_RESISTANCES },
         learnedAbilities: [],
         defaultLearnedAbilities: [],
+        // v0.6.2: MP (创建时为 0, 角色升级或导师 NPC 教学后通过 setResistance/learnAbility 设置)
+        mp: 0, maxMp: 0,
       };
 
     if (multiplayer) {

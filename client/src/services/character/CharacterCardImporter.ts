@@ -138,6 +138,8 @@ export function importCharacterCard(card: CharacterCard): ImportResult {
     elementalResistances: { ...ZERO_RESISTANCES },
     learnedAbilities: [],
     defaultLearnedAbilities: [],
+    // v0.6.2: MP (导入时默认 0)
+    mp: 0, maxMp: 0,
     recentHistory: (snap.recentHistory || []).map(h => ({
       worldDay: h.worldDay,
       region: h.region,

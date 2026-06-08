@@ -46,6 +46,8 @@ export interface Character {
   background: string; appearance: string;
   attributes: Attributes; skills: Skill[]; inventory: Inventory;
   hp: number; maxHp: number;
+  // v0.6.2: 法力 (MP) — 释放 magic/prayer 消耗
+  mp: number; maxMp: number;
   vital: VitalStats; reputation: Reputation;
   conditions: string[];
   joinedRegion: string; joinedWorldDay: number;

@@ -23,6 +23,7 @@ const DIFFICULTY_LABEL: Record<DebugBattle['difficulty'], string> = {
   normal: 'NORMAL',
   hard: 'HARD',
   deadly: 'DEADLY',
+  ability: 'SPELL',  // v0.6.2
 };
 
 const DIFFICULTY_COLOR: Record<DebugBattle['difficulty'], string> = {
@@ -30,6 +31,7 @@ const DIFFICULTY_COLOR: Record<DebugBattle['difficulty'], string> = {
   normal: 'bg-blue-100 text-blue-800 border-blue-300',
   hard: 'bg-orange-100 text-orange-800 border-orange-300',
   deadly: 'bg-red-100 text-red-800 border-red-300',
+  ability: 'bg-purple-100 text-purple-800 border-purple-300',  // v0.6.2
 };
 
 export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
