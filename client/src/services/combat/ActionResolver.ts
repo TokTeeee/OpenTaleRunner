@@ -340,7 +340,28 @@ export class ActionResolver {
       case 'flee': return this.resolveFlee(action, ctx, state);
       case 'defend': return this.resolveDefend(action, ctx, state);
       case 'wait': return this.resolveWait(action, ctx, state);
+      // v0.6.2: 释放 ability (魔法/祷告/战技), Task 13 完整实现
+      case 'ability': return this.resolveAbility(action, ctx, state);
     }
+  }
+
+  // ---- ability (v0.6.2 stub, Task 13 完整实现) ----
+  private resolveAbility(
+    _action: Extract<CombatAction, { kind: 'ability' }>,
+    _ctx: ResolverContext,
+    state: ReturnType<typeof useCombatStore.getState>,
+  ): TurnResult {
+    return {
+      log: [{
+        kind: 'action',
+        round: state.round,
+        turn: state.turn,
+        message: '[v0.6.2 stub] ability 解析尚未实现, Task 13 接入',
+        timestamp: Date.now(),
+      }],
+      buffTicks: [],
+      ended: false,
+    };
   }
 
   // ---- attack ----

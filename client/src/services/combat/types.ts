@@ -101,7 +101,7 @@ export interface BuffInstance {
 //   先在战斗动作集里隐藏, 后续 SkillRegistry 落地后再加回.
 // - 攻击 2 AP / 防御 1 AP / 物品 0 AP / 逃跑 0 AP / 休息 0 AP.
 
-export type CombatActionKind = 'attack' | 'item' | 'flee' | 'defend' | 'wait';
+export type CombatActionKind = 'attack' | 'item' | 'flee' | 'defend' | 'wait' | 'ability';
 
 export interface ActionCost {
   ap: number;
@@ -115,7 +115,9 @@ export type CombatAction =
   /** 防御: 提升目标闪避门槛 (累计闪避惩罚), 消耗 1 AP */
   | { kind: 'defend'; userId: string; cost: ActionCost }
   /** 跳过本回合, 恢复 1 AP (受 maxAp clamp) */
-  | { kind: 'wait'; userId: string };
+  | { kind: 'wait'; userId: string }
+  // v0.6.2: 释放 ability (魔法/祷告/战技). userId=施法者, abilityId, targetId 可选 (self/ally 仍要传)
+  | { kind: 'ability'; userId: string; abilityId: string; targetId?: string };
 
 // ============================================================
 // §5.4 InitiativeEntry & CombatState
