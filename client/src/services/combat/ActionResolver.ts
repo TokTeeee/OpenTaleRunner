@@ -48,6 +48,9 @@ import { routeItem, NeedsGMFallbackError } from './ItemCallbackRouter';
 import type { Item } from '../../types/item';
 import { eventBus } from '../event/EventBus';
 import { EVENTS } from '../event/events';
+import type { Ability } from '../../types/ability';
+import { getAbility } from '../../data/abilities';
+import { applySpecial, applyResistance, parseDiceFormula } from '../abilities/abilityUtils';
 
 // ============================================================
 // 错误
@@ -345,23 +348,218 @@ export class ActionResolver {
     }
   }
 
-  // ---- ability (v0.6.2 stub, Task 13 完整实现) ----
+  // ---- ability (v0.6.2 完整实现) ----
   private resolveAbility(
-    _action: Extract<CombatAction, { kind: 'ability' }>,
-    _ctx: ResolverContext,
+    action: Extract<CombatAction, { kind: 'ability' }>,
+    ctx: ResolverContext,
     state: ReturnType<typeof useCombatStore.getState>,
   ): TurnResult {
-    return {
-      log: [{
-        kind: 'action',
-        round: state.round,
-        turn: state.turn,
-        message: '[v0.6.2 stub] ability 解析尚未实现, Task 13 接入',
-        timestamp: Date.now(),
-      }],
-      buffTicks: [],
-      ended: false,
-    };
+    const log: CombatLogEntry[] = [];
+    const ts = Date.now();
+
+    const attacker = state.combatants[action.userId];
+    if (!attacker) {
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: `[错误] 未知施法者 ${action.userId}`, timestamp: ts });
+      return { log, buffTicks: [], ended: false };
+    }
+    if (attacker.isDead) {
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: `无效施法 (${attacker.name} 已死亡)`, timestamp: ts });
+      return { log, buffTicks: [], ended: false };
+    }
+
+    const ability = getAbility(action.abilityId);
+    if (!ability) {
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: `[错误] 未知 ability ${action.abilityId}`, timestamp: ts });
+      return { log, buffTicks: [], ended: false };
+    }
+
+    // 资源检查: AP, MP
+    this.checkAP(attacker, ability.cost.ap);
+    this.checkMP(attacker, ability.cost.mp);
+
+    // 目标解析
+    const target = this.resolveAbilityTarget(attacker, action.targetId, ability, state);
+    if (target === 'invalid') {
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: `[错误] 目标选择无效 (${ability.name})`, timestamp: ts });
+      return { log, buffTicks: [], ended: false };
+    }
+
+    // 释放日志
+    log.push({
+      kind: 'action',
+      round: state.round, turn: state.turn,
+      message: `${attacker.name} 释放 ${ability.name} (${ability.school})`,
+      data: { abilityId: ability.id, school: ability.school, element: ability.element },
+      timestamp: ts,
+    });
+
+    // 自目标 buff (无需命中)
+    if (ability.target === 'self' && ability.effect.applyBuff) {
+      this.applyAbilityBuff(attacker, ability, ts, log, state);
+    }
+    // 治疗 (无需命中)
+    if (ability.effect.isHeal && target && typeof target === 'object') {
+      const healAmount = this.computeAbilityMagnitude(attacker, ability, ctx.roll, state.round);
+      useCombatStore.getState().applyHeal(target.id, healAmount);
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `${target.name} 受到 ${ability.name} 治疗 +${healAmount} HP`,
+        data: { heal: healAmount }, timestamp: ts,
+      });
+    }
+    // 友军 buff
+    if (ability.target === 'ally' && ability.effect.applyBuff && target && typeof target === 'object') {
+      this.applyAbilityBuff(target, ability, ts, log, state);
+    }
+    // 伤害 (需命中)
+    if (!ability.effect.isHeal && ability.effect.damageDice !== '0' && target && typeof target === 'object') {
+      this.resolveAbilityDamage(attacker, target, ability, ctx, state, log, ts);
+    }
+
+    // 扣资源
+    useCombatStore.getState().applyAP(attacker.id, -ability.cost.ap);
+    if (ability.cost.mp > 0) {
+      useCombatStore.getState().applyMP(attacker.id, -ability.cost.mp);
+    }
+    return { log, buffTicks: [], ended: false };
+  }
+
+  private resolveAbilityTarget(
+    attacker: Combatant,
+    targetId: string | undefined,
+    ability: Ability,
+    state: ReturnType<typeof useCombatStore.getState>,
+  ): Combatant | 'invalid' {
+    if (ability.target === 'self') return attacker;
+    if (!targetId) return 'invalid';
+    const t = state.combatants[targetId];
+    if (!t) return 'invalid';
+    if (ability.target === 'enemy' && t.side === 'enemy') return t;
+    if (ability.target === 'ally' && (t.side === 'player' || t.side === 'ally')) return t;
+    if (ability.target === 'all_enemies' || ability.target === 'all_allies') {
+      // v0.6.2 简化为单体 (用户原意 "AOE 推迟")
+      return t;
+    }
+    return 'invalid';
+  }
+
+  private computeAbilityMagnitude(
+    attacker: Combatant,
+    ability: Ability,
+    roll: RollFn,
+    _round: number,
+  ): number {
+    const { total } = parseDiceFormula(ability.effect.damageDice, roll);
+    const attrValue = effectiveAttribute(attacker, ability.effect.attributeScale);
+    const attrMod = Math.floor((attrValue - 10) / 2);
+    return Math.max(0, total + attrMod);
+  }
+
+  private applyAbilityBuff(
+    target: Combatant,
+    ability: Ability,
+    ts: number,
+    log: CombatLogEntry[],
+    state: ReturnType<typeof useCombatStore.getState>,
+  ): void {
+    const ref = ability.effect.applyBuff;
+    if (!ref) return;
+    const modifiers: Partial<Attributes> =
+      ref.ref === 'blessing' ? { DEX: 2 } :
+      ref.ref === 'fortitude' ? { DEX: 1 } :
+      ref.ref === 'arcane_ward' ? { DEX: 0, CON: 2 } :
+      {};
+    useCombatStore.getState().addBuff(target.id, {
+      ref: ref.ref,
+      stacks: ref.stacks,
+      remainingTurns: ref.turns,
+      source: target.id,
+      appliedAtTurn: state.turn,
+      modifiers,
+    });
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `${target.name} 获得 buff: ${ref.ref} (${ref.turns} 回合)`,
+      data: { buffRef: ref.ref, turns: ref.turns },
+      timestamp: ts,
+    });
+  }
+
+  private resolveAbilityDamage(
+    attacker: Combatant,
+    target: Combatant,
+    ability: Ability,
+    ctx: ResolverContext,
+    state: ReturnType<typeof useCombatStore.getState>,
+    log: CombatLogEntry[],
+    ts: number,
+  ): void {
+    // 命中投: d20 + DEX_mod vs threshold
+    const toHit = rollToHit(attacker, ctx.roll);
+    const dodgePenalty = this.dodgePenalty.get(target.id) ?? 0;
+    const defending = ctx.getDefending(target.id);
+    const threshold = hitThreshold(target, dodgePenalty, defending);
+    const hit = checkHit(toHit.total, threshold.total);
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `${ability.name}: d20=${toHit.d20}+${toHit.dexMod} = ${toHit.total} vs 门槛 ${threshold.total}`,
+      data: { toHit, threshold, abilityId: ability.id },
+      timestamp: ts,
+    });
+    if (!hit) {
+      this.dodgePenalty.set(target.id, dodgePenalty + DODGE_PENALTY_STEP);
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `${target.name} 闪避了 ${ability.name}!`,
+        timestamp: ts,
+      });
+      return;
+    }
+    if (dodgePenalty > 0) this.dodgePenalty.set(target.id, 0);
+
+    // QTE 缩放 (magic modifier)
+    const qteRes = ctx.qte({ action: { kind: 'ability', userId: attacker.id, abilityId: ability.id, targetId: target.id }, attacker, target, state });
+
+    // 计算基础伤害
+    const baseAmount = this.computeAbilityMagnitude(attacker, ability, ctx.roll, state.round);
+
+    // 战技 armor_pierce: 防御减半 (应用 50% 穿透)
+    const targetDefense = getArmorDefense(target.equipped.armor);
+    const effectiveDefense = ability.effect.special === 'armor_pierce' ? Math.floor(targetDefense / 2) : targetDefense;
+    const preResistance = Math.max(1, baseAmount - effectiveDefense);
+
+    // 抗性
+    const element = ability.effect.element;
+    const postResistance = applyResistance(preResistance, element, target.elementalResistances);
+
+    // 战技 special (high_crit 改 damage, life_steal 治疗自己, self_dodge_penalty 加 buff)
+    const specialResult = applySpecial(ability.effect.special, postResistance, attacker, target, state.turn);
+    const finalDamage = Math.max(0, Math.round(specialResult.damage * (1 + qteRes.modifier * this.damageScale)));
+
+    useCombatStore.getState().applyDamage(target.id, finalDamage);
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `${ability.name} 命中! ${baseAmount} 基础 → ${preResistance} (穿甲后) → ${postResistance} (抗性后) → ${finalDamage} 伤害${qteRes.modifier !== 0 ? ` (QTE ×${(1 + qteRes.modifier * this.damageScale).toFixed(2)})` : ''}`,
+      data: { baseAmount, preResistance, postResistance, finalDamage, qte: qteRes },
+      timestamp: ts,
+    });
+    // 附加 special log
+    for (const extra of specialResult.extra) {
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: extra, timestamp: ts });
+    }
+    // 广播
+    eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: finalDamage, isCrit: qteRes.modifier > 0 });
+    if (target.hp - finalDamage <= 0) {
+      eventBus.emit(EVENTS.COMBAT_KILL, { killerId: attacker.id, targetId: target.id, targetName: target.name });
+    }
+  }
+
+  private checkMP(c: Combatant, required: number): void {
+    if (required === 0) return;
+    const available = c.mp ?? 0;
+    if (available < required) {
+      throw new Error(`MP 不足: 需要 ${required}, 实际 ${available}`);
+    }
   }
 
   // ---- attack ----

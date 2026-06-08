@@ -5,13 +5,13 @@ import { resistanceMultiplier, applyResistance, parseDiceFormula } from '../../.
 import { ZERO_RESISTANCES } from '../../../src/types/character';
 
 describe('parseDiceFormula', () => {
-  const fixedRoll = () => [4]; // 固定返回 4
+  const fixedRoll = (sides: number) => 4; // 固定返回 4
 
   it('1d6 → 4', () => expect(parseDiceFormula('1d6', fixedRoll).total).toBe(4));
   it('1d6+2 → 6', () => expect(parseDiceFormula('1d6+2', fixedRoll).total).toBe(6));
   it('1d6+1 → 5', () => expect(parseDiceFormula('1d6+1', fixedRoll).total).toBe(5));
   it('-1d6 → 治疗 0 (负数 floor 0, 实际不用 leading minus)', () => expect(parseDiceFormula('-1d6', fixedRoll).total).toBe(0));
-  it('2d4 → 8 (2 骰 4 面, fixedRoll 给 [4, 4])', () => expect(parseDiceFormula('2d4', () => [4, 4]).total).toBe(8));
+  it('2d4 → 8 (2 骰 4 面, fixedRoll 给 4+4)', () => expect(parseDiceFormula('2d4', () => 4).total).toBe(8));
   it('0 → 0', () => expect(parseDiceFormula('0', fixedRoll).total).toBe(0));
   it('无效公式抛错', () => expect(() => parseDiceFormula('abc', fixedRoll)).toThrow());
 });

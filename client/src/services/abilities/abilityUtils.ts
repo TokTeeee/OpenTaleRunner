@@ -9,21 +9,22 @@ import type { ElementalResistances } from '../../types/character';
 import type { Combatant } from '../combat/types';
 import { useCombatStore } from '../../stores/combatStore';
 
-type RollFn = (sides: number, count: number) => number[];
+// RollFn 与 combat/dice.ts 保持一致: (sides: number) => number, 单次骰
+type RollFn = (sides: number) => number;
 
 /** 解析骰公式 '1d6' / '1d6+2' / '-1d6-1' / '0', 返 { total, rolls } */
 export function parseDiceFormula(formula: string, roll: RollFn): { total: number; rolls: number[] } {
   if (formula === '0') return { total: 0, rolls: [] };
-  // 提取符号 + 骰子 + 加成
   const match = formula.match(/^(-?)(\d+)d(\d+)([+-]\d+)?$/);
   if (!match) throw new Error(`Invalid dice formula: ${formula}`);
   const sign = match[1] === '-' ? -1 : 1;
   const count = parseInt(match[2], 10);
   const sides = parseInt(match[3], 10);
   const bonus = match[4] ? parseInt(match[4], 10) : 0;
-  const rolls = roll(sides, count);
+  const rolls: number[] = [];
+  for (let i = 0; i < count; i++) rolls.push(roll(sides));
   const sum = rolls.reduce((a, b) => a + b, 0);
-  // 治疗公式: |-1d6-1| = 5 表示吸 5 HP (floor 0)
+  // 治疗公式: 负数 floor 0
   return { total: Math.max(0, sign * (sum + bonus)), rolls };
 }
 
