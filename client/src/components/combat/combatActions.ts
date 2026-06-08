@@ -9,15 +9,16 @@
  * - AP 消耗以 ActionResolver.ACTION_COSTS 为基准, 此处仅作 UI 显示.
  */
 
-export type ActionKind = 'attack' | 'item' | 'defend' | 'wait' | 'flee';
+export type ActionKind = 'attack' | 'item' | 'defend' | 'wait' | 'flee' | 'ability';
 
-/** 5 类动作 AP 成本 (与 ActionResolver.ACTION_COSTS 同步). */
+/** 6 类动作 AP 成本 (与 ActionResolver.ACTION_COSTS 同步). */
 export const ACTION_COSTS: Record<ActionKind, number> = {
   attack: 2,
   item: 0,
   defend: 1, // 与 DEFEND_AP_COST 同步
   flee: 0,
   wait: 0,
+  ability: 2,
 };
 
 /** 5 类动作显示规范 (label + glyph) */
@@ -37,4 +38,5 @@ export const ACTION_SPECS: ActionSpec[] = [
   { kind: 'defend', label: '防御', glyph: '⛨', cost: 1, description: '+命中门槛, 连续闪避的惩罚随防御重置' },
   { kind: 'wait', label: '休息', glyph: '⏸', cost: 0, description: '跳过本回合, 恢复1点AP (受 maxAp 限制)' },
   { kind: 'flee', label: '逃跑', glyph: '⤳', cost: 0, description: '尝试脱离战斗' },
+  { kind: 'ability', label: '技能', glyph: '✨', cost: 2, description: '释放已学习的魔法/祷告/战技' },
 ];
