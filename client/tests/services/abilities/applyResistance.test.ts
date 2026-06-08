@@ -5,7 +5,7 @@ import { resistanceMultiplier, applyResistance, parseDiceFormula } from '../../.
 import { ZERO_RESISTANCES } from '../../../src/types/character';
 
 describe('parseDiceFormula', () => {
-  const fixedRoll = (sides: number) => 4; // 固定返回 4
+  const fixedRoll = (_sides: number) => 4; // 固定返回 4
 
   it('1d6 → 4', () => expect(parseDiceFormula('1d6', fixedRoll).total).toBe(4));
   it('1d6+2 → 6', () => expect(parseDiceFormula('1d6+2', fixedRoll).total).toBe(6));

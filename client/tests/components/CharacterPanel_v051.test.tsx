@@ -5,6 +5,7 @@ import { CharacterPanel } from '../../src/components/panels/CharacterPanel';
 import { useCharacterStore } from '../../src/stores/characterStore';
 import { resetClientStores } from '../utils/resetStores';
 import type { Character } from '../../src/types/character';
+import { ZERO_RESISTANCES } from '../../src/types/character';
 
 function makeChar(over: Partial<Character> = {}): Character {
   return {
@@ -24,6 +25,10 @@ function makeChar(over: Partial<Character> = {}): Character {
     recentHistory: [],
     level: 1, exp: 50, expToNext: 100, unspentAttributePoints: 0,
     classId: null, classSkills: [],
+    // v0.6.2
+    elementalResistances: { ...ZERO_RESISTANCES } as ElementalResistances,
+    learnedAbilities: [],
+    defaultLearnedAbilities: [],
     ...over,
   };
 }

@@ -14,6 +14,8 @@
 import { motion } from 'framer-motion';
 import type { Combatant, BuffInstance } from '../../services/combat/types';
 import { isAlive } from '../../services/combat/types';
+import { ELEMENT_ICONS, ELEMENT_LABELS } from '../../types/ability';
+import type { Element } from '../../types/ability';
 
 interface CombatantCardProps {
   combatant: Combatant;
@@ -201,6 +203,34 @@ export function CombatantCard({
           <span className="text-[9px] text-ink-400 font-display tracking-widest">逃</span>
         )}
       </div>
+
+      {/* v0.6.2 — 元素抗性 chips (only non-zero values, compact 2-col grid) */}
+      {combatant.elementalResistances && (
+        <div
+          className="mt-1.5 grid grid-cols-4 gap-x-1 gap-y-0.5"
+          data-testid="combatant-resistances"
+        >
+          {(['fire', 'ice', 'lightning', 'wind', 'earth', 'arcane', 'holy', 'shadow'] as Element[]).map((el) => {
+            const v = combatant.elementalResistances[el];
+            if (v === 0) return null;
+            const isResist = v > 0;
+            return (
+              <span
+                key={el}
+                data-testid={`combatant-resist-${el}`}
+                data-value={v}
+                title={`${ELEMENT_LABELS[el]} ${isResist ? '抗' : '弱'} ${isResist ? '+' : ''}${v}%`}
+                className={`text-[9px] font-mono flex items-center gap-0.5 ${
+                  isResist ? 'text-cyan-300' : 'text-rose-300'
+                }`}
+              >
+                <span aria-hidden>{ELEMENT_ICONS[el]}</span>
+                <span>{isResist ? '+' : ''}{v}</span>
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Buff/Debuff 图标 (最多显示 6 个, 溢出 +N) */}
       {combatant.conditions.length > 0 && (

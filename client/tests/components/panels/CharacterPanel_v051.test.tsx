@@ -7,7 +7,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { CharacterPanel } from '../../../src/components/panels/CharacterPanel';
 import { useCharacterStore } from '../../../src/stores/characterStore';
 import { resetClientStores } from '../../utils/resetStores';
-import type { Character } from '../../../src/types/character';
+import type { Character, ElementalResistances } from '../../../src/types/character';
+import { ZERO_RESISTANCES } from '../../../src/types/character';
 
 function makeBaseChar(overrides: Partial<Character> = {}): Character {
   return {
@@ -40,6 +41,10 @@ function makeBaseChar(overrides: Partial<Character> = {}): Character {
     unspentAttributePoints: 0,
     classId: null,
     classSkills: [],
+    // v0.6.2
+    elementalResistances: { ...ZERO_RESISTANCES } as ElementalResistances,
+    learnedAbilities: [],
+    defaultLearnedAbilities: [],
     ...overrides,
   } as Character;
 }

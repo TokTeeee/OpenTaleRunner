@@ -7,7 +7,7 @@ import { useWorldStore } from '../../stores/worldStore';
 import { LLMClient } from '../../services/llm/LLMClient';
 import { PromptBuilder } from '../../services/engine/PromptBuilder';
 import { generateInitialAttributes, validateAttributes } from '../../utils/formula';
-import type { Character, Attributes, AttributeName, Skill, ClassSkillNode } from '../../types/character';
+import { ZERO_RESISTANCES, type Character, type Attributes, type AttributeName, type Skill, type ClassSkillNode } from '../../types/character';
 import type { LLMConfig } from '../../types/llm';
 import { ATTRIBUTE_NAMES, ATTRIBUTE_LABELS } from '../../types/character';
 import { generateId } from '../../utils/text';
@@ -365,6 +365,10 @@ export function CharacterCreationWizard({
         // v0.5.2 Class pick
         classId,
         classSkills,
+        // v0.6.2: 抗性 + 学习过的能力
+        elementalResistances: { ...ZERO_RESISTANCES },
+        learnedAbilities: [],
+        defaultLearnedAbilities: [],
       };
 
     if (multiplayer) {

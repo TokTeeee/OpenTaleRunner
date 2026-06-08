@@ -52,7 +52,7 @@ import { MultiplayerGameView } from './components/multiplayer/MultiplayerGameVie
 import { markCharacterReady, spectatorReady } from './services/multiplayer/MultiplayerAPI';
 import { startRealtimeSync, stopRealtimeSync, uploadSessionImmediate } from './services/multiplayer/SyncServices';
 import { npcGenerator } from './services/npc/NPCGenerator';
-import type { Character } from './types/character';
+import { ZERO_RESISTANCES, type Character } from './types/character';
 import { getWorldEra, getWorldName, hydrateStorybook, makeStarterNPCId, matchTemplateKeyForRole, resolveRegionName, resolveStartingContext } from './services/storybook/runtime';
 
 type LegacyCharacter = Partial<Character> & {
@@ -322,6 +322,10 @@ export default function App() {
       // v0.5.2: 职业系统
       classId: null,
       classSkills: [],
+      // v0.6.2: 抗性 + 学习过的能力
+      elementalResistances: { ...ZERO_RESISTANCES },
+      learnedAbilities: [],
+      defaultLearnedAbilities: [],
       currentCoordinates: quickStartLocation?.coordinates
         ? { x: quickStartLocation.coordinates.x || 0, y: 0, z: quickStartLocation.coordinates.z || 0 }
         : { x: 0, y: 0, z: 0 },

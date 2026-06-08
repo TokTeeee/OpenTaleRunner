@@ -1,6 +1,6 @@
 // client/tests/services/combat/resolveAbility.test.ts
 // v0.6.2 Task 13: ActionResolver.resolveAbility 完整测试
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { createActionResolver } from '../../../src/services/combat/ActionResolver';
 import { useCombatStore } from '../../../src/stores/combatStore';
 import { ZERO_RESISTANCES } from '../../../src/types/character';

@@ -4,6 +4,7 @@ import { ATTRIBUTE_LABELS, VITAL_LABELS, VITAL_ICONS, VITAL_MAX } from '../../ty
 import type { Attributes, Character, Reputation } from '../../types/character';
 import { ItemChip } from '../items/ItemChip';
 import { SkillsSection } from './CharacterPanel/SkillsSection';
+import { ResistanceDisplay } from './CharacterPanel/ResistanceDisplay';
 import { ClassSkillTreeModal } from './CharacterPanel/ClassSkillTreeModal';
 import { getClass } from '../../data/classes';  // v0.5.14 (用于头部职业名)
 
@@ -126,6 +127,12 @@ export function CharacterPanel() {
 
       {/* v0.5.14 — SkillsSection 合并 3 种 chip (origin蓝/learned绿/available黄) */}
       <SkillsSection />
+
+      {/* v0.6.2 — 8 元素抗性 (always render, even all-zero for transparency) */}
+      <div data-testid="panel-resistances">
+        <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">抗性</div>
+        <ResistanceDisplay resistances={character.elementalResistances} />
+      </div>
 
       {/* Equipment (v0.5.14: 折叠) */}
       <details data-testid="panel-equipment-details" className="text-[10px]">

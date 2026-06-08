@@ -1,5 +1,6 @@
 import type { CharacterCard, ImportResult } from '../../types/characterCard';
 import { useCharacterStore } from '../../stores/characterStore';
+import { ZERO_RESISTANCES } from '../../types/character';
 import { useNPCStore } from '../../stores/npcStore';
 import { useWorldStore } from '../../stores/worldStore';
 import { normalizeItem } from '../../types/item';
@@ -133,6 +134,10 @@ export function importCharacterCard(card: CharacterCard): ImportResult {
     // v0.5.2: 职业系统
     classId: snap.classId ?? null,
     classSkills: snap.classSkills ?? [],
+    // v0.6.2: 抗性 + 学习过的能力
+    elementalResistances: { ...ZERO_RESISTANCES },
+    learnedAbilities: [],
+    defaultLearnedAbilities: [],
     recentHistory: (snap.recentHistory || []).map(h => ({
       worldDay: h.worldDay,
       region: h.region,
