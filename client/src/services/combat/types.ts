@@ -10,7 +10,7 @@
  * 详见 spec: docs/superpowers/specs/2026-06-04-v04-combat-system-design.md §5
  */
 
-import type { Attributes, Inventory, AttributeName } from '../../types/character';
+import type { Attributes, Inventory, AttributeName, ElementalResistances } from '../../types/character';
 import type { ItemEffect } from '../../types/item';
 
 // ============================================================
