@@ -356,6 +356,21 @@ export class ActionResolver {
   ): TurnResult {
     const log: CombatLogEntry[] = [];
     const ts = Date.now();
+    let emitted = false;
+
+    const emit = (extra: { success: boolean; damage?: number; heal?: number; targetId?: string | null }) => {
+      if (emitted) return;
+      emitted = true;
+      const ability = getAbility(action.abilityId);
+      eventBus.emit(EVENTS.ABILITY_USED, {
+        abilityId: action.abilityId,
+        userId: action.userId,
+        targetId: action.targetId ?? null,
+        school: ability?.school ?? null,
+        element: ability?.element ?? null,
+        ...extra,
+      });
+    };
 
     const attacker = state.combatants[action.userId];
     if (!attacker) {
@@ -392,10 +407,21 @@ export class ActionResolver {
       data: { abilityId: ability.id, school: ability.school, element: ability.element },
       timestamp: ts,
     });
+    // 叙事 hook: 把 ability.description.narrative 注入日志 (供战斗描述系统用)
+    if (ability.description?.narrative) {
+      log.push({
+        kind: 'action',
+        round: state.round, turn: state.turn,
+        message: ability.description.narrative,
+        data: { abilityId: ability.id, narrative: true },
+        timestamp: ts,
+      });
+    }
 
     // 自目标 buff (无需命中)
     if (ability.target === 'self' && ability.effect.applyBuff) {
       this.applyAbilityBuff(attacker, ability, ts, log, state);
+      emit({ success: true, targetId: attacker.id });
     }
     // 治疗 (无需命中)
     if (ability.effect.isHeal && target && typeof target === 'object') {
@@ -406,14 +432,17 @@ export class ActionResolver {
         message: `${target.name} 受到 ${ability.name} 治疗 +${healAmount} HP`,
         data: { heal: healAmount }, timestamp: ts,
       });
+      emit({ success: true, heal: healAmount, targetId: target.id });
     }
     // 友军 buff
     if (ability.target === 'ally' && ability.effect.applyBuff && target && typeof target === 'object') {
       this.applyAbilityBuff(target, ability, ts, log, state);
+      emit({ success: true, targetId: target.id });
     }
-    // 伤害 (需命中)
+    // 伤害 (需命中) — resolveAbilityDamage 内部 emit COMBAT_HIT/KILL; 此处也 emit ABILITY_USED
     if (!ability.effect.isHeal && ability.effect.damageDice !== '0' && target && typeof target === 'object') {
-      this.resolveAbilityDamage(attacker, target, ability, ctx, state, log, ts);
+      const result = this.resolveAbilityDamage(attacker, target, ability, ctx, state, log, ts);
+      emit({ success: result.hit, damage: result.damage, targetId: target.id });
     }
 
     // 扣资源
@@ -493,7 +522,7 @@ export class ActionResolver {
     state: ReturnType<typeof useCombatStore.getState>,
     log: CombatLogEntry[],
     ts: number,
-  ): void {
+  ): { hit: boolean; damage: number } {
     // 命中投: d20 + DEX_mod vs threshold
     const toHit = rollToHit(attacker, ctx.roll);
     const dodgePenalty = this.dodgePenalty.get(target.id) ?? 0;
@@ -513,7 +542,7 @@ export class ActionResolver {
         message: `${target.name} 闪避了 ${ability.name}!`,
         timestamp: ts,
       });
-      return;
+      return { hit: false, damage: 0 };
     }
     if (dodgePenalty > 0) this.dodgePenalty.set(target.id, 0);
 
@@ -552,6 +581,7 @@ export class ActionResolver {
     if (target.hp - finalDamage <= 0) {
       eventBus.emit(EVENTS.COMBAT_KILL, { killerId: attacker.id, targetId: target.id, targetName: target.name });
     }
+    return { hit: true, damage: finalDamage };
   }
 
   private checkMP(c: Combatant, required: number): void {

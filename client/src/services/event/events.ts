@@ -22,6 +22,8 @@ export const EVENTS = {
   // v0.5.2 — class hooks
   CLASS_PICKED: 'character.class_picked',   // payload: { characterId, classId }
   CLASS_NODE_UNLOCKED: 'character.class_node_unlocked', // payload: { characterId, classId, nodeId, tier }
+  // v0.6.2 — ability hooks (供 LLM / 叙事系统监听)
+  ABILITY_USED: 'combat.ability_used',  // payload: { abilityId, userId, targetId, school, element, success, damage?, heal? }
 } as const;
 
 export type EventName = typeof EVENTS[keyof typeof EVENTS];
