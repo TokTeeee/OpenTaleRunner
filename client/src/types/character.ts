@@ -68,12 +68,34 @@ export interface Character {
   // v0.5.2 Class fields (default null/[] in v0.5.1, used from v0.5.2)
   classId: string | null;
   classSkills: ClassSkillNode[];
+  // v0.6.2 Ability system fields
+  elementalResistances: ElementalResistances;
+  learnedAbilities: LearnedAbility[];
+  defaultLearnedAbilities: string[]; // debug 用, 启动时自动学习的能力 id 列表
 }
 
 export interface ClassSkillNode {
   classId: string;
   nodeId: string;
   unlockedAt: number;
+}
+
+// v0.6.2: 8 元素抗性 (-100~100, 0 = 无抗, >0 = 抗, <0 = 弱)
+export interface ElementalResistances {
+  fire: number; ice: number; lightning: number; wind: number;
+  earth: number; arcane: number; holy: number; shadow: number;
+}
+
+export const ZERO_RESISTANCES: ElementalResistances = {
+  fire: 0, ice: 0, lightning: 0, wind: 0,
+  earth: 0, arcane: 0, holy: 0, shadow: 0,
+};
+
+// v0.6.2: 学习过的能力记录
+export interface LearnedAbility {
+  abilityId: string;
+  school: 'magic' | 'prayer' | 'battle_art';
+  learnedAt: number;
 }
 
 export interface HistoryEntry {
