@@ -3,8 +3,11 @@
 // - parseDiceFormula: 骰公式解析 ('1d6' / '1d6+2' / '0')
 // - resistanceMultiplier: 抗性 → 伤害乘数
 // - applyResistance: 应用抗性到伤害
-import type { Element } from '../../types/ability';
+// - applySpecial: 战技 special (high_crit/armor_pierce/life_steal/self_dodge_penalty)
+import type { Element, BattleArtSpecial } from '../../types/ability';
 import type { ElementalResistances } from '../../types/character';
+import type { Combatant } from '../combat/types';
+import { useCombatStore } from '../../stores/combatStore';
 
 type RollFn = (sides: number, count: number) => number[];
 
@@ -39,4 +42,42 @@ export function applyResistance(
   if (element === null) return baseDamage;
   const r = targetResistances[element];
   return Math.max(0, Math.round(baseDamage * resistanceMultiplier(r)));
+}
+
+/**
+ * 战技 special: 在 baseDamage 基础上修改并追加 log 消息.
+ * - high_crit: 伤害 × 1.3
+ * - armor_pierce: 自身伤害不变 (caller 在 QTE/resistance 后再乘 1.25 简化穿透)
+ * - life_steal: 30% 转治疗自身 (applyHeal)
+ * - self_dodge_penalty: 自身加 1 回合 DEX-2 buff
+ */
+export function applySpecial(
+  special: BattleArtSpecial | undefined,
+  baseDamage: number,
+  attacker: Combatant,
+  _target: Combatant | null,
+  currentTurn: number,
+): { damage: number; extra: string[] } {
+  if (!special) return { damage: baseDamage, extra: [] };
+  switch (special) {
+    case 'high_crit':
+      return { damage: Math.round(baseDamage * 1.3), extra: [`${attacker.name} 命中要害!`] };
+    case 'armor_pierce':
+      return { damage: baseDamage, extra: ['穿甲效果生效'] };
+    case 'life_steal': {
+      const steal = Math.max(1, Math.round(baseDamage * 0.3));
+      useCombatStore.getState().applyHeal(attacker.id, steal);
+      return { damage: baseDamage, extra: [`${attacker.name} 吸取 ${steal} HP`] };
+    }
+    case 'self_dodge_penalty':
+      useCombatStore.getState().addBuff(attacker.id, {
+        ref: 'self_dodge_penalty',
+        stacks: 1,
+        remainingTurns: 1,
+        source: attacker.id,
+        appliedAtTurn: currentTurn,
+        modifiers: { DEX: -2 },
+      });
+      return { damage: baseDamage, extra: [`${attacker.name} 体力消耗, 防御下降`] };
+  }
 }
