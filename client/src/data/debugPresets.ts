@@ -6,6 +6,7 @@
  */
 import type { Combatant } from '../services/combat/types';
 import type { Item } from '../types/item';
+import { ZERO_RESISTANCES } from '../types/character';
 
 // ============================================================
 // 类型
@@ -44,6 +45,7 @@ export function createDebugPlayer(): Combatant {
         effects: [{ id: 'e1', type: 'defense_bonus', value: 1, description: '+1 防御' }] } as Item,
       accessory: null,
     },
+    elementalResistances: { ...ZERO_RESISTANCES },
   };
 }
 
@@ -65,6 +67,7 @@ function baseEnemy(id: string, name: string, hp: number, attrs: Combatant['attri
     isDead: false,
     isFleeing: false,
     equipped: { weapon: null, armor: null, accessory: null },
+    elementalResistances: { ...ZERO_RESISTANCES },
   };
 }
 

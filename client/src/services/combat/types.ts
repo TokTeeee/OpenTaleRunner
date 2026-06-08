@@ -58,6 +58,9 @@ export interface Combatant {
   // 装备 — 复用 v0.3 Inventory 类型
   equipped: Inventory['equipped'];
 
+  // v0.6.2: 8 元素抗性 (-100~100, 0=无抗, >0=抗, <0=弱)
+  elementalResistances: ElementalResistances;
+
   // 怪物专属
   mobData?: MobData;
 }
