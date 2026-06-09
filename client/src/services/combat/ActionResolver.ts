@@ -63,6 +63,7 @@ import type { Ability } from '../../types/ability';
 import { getAbility } from '../../data/abilities';
 import { applySpecial, applyResistance, parseDiceFormula } from '../abilities/abilityUtils';
 import { ELEMENT_LABELS } from '../../types/ability';
+import type { ElementalResistances } from '../../types/character';
 
 // ============================================================
 // 错误
@@ -156,6 +157,44 @@ export function getEquipmentAttributeMods(equipped: Combatant['equipped']): Attr
     }
   }
   return out;
+}
+
+/** 从装备效果汇总元素抗性 (elemental_resist 词条). */
+export function getEquipmentResistances(
+  equipped: Combatant['equipped'],
+): Partial<ElementalResistances> {
+  const result: Partial<ElementalResistances> = {};
+  const slots = [equipped.weapon, equipped.armor, equipped.accessory];
+  for (const item of slots) {
+    if (!item?.effects) continue;
+    for (const eff of item.effects) {
+      if (eff.type === 'elemental_resist' && typeof eff.value === 'object' && eff.value !== null) {
+        const v = eff.value as Record<string, unknown>;
+        for (const [element, val] of Object.entries(v)) {
+          if (typeof val === 'number') {
+            result[element as keyof ElementalResistances] =
+              (result[element as keyof ElementalResistances] ?? 0) + val;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+/** 从装备效果汇总 MP 加成 (mp_bonus 词条). */
+export function getEquipmentMPBonus(equipped: Combatant['equipped']): number {
+  let bonus = 0;
+  const slots = [equipped.weapon, equipped.armor, equipped.accessory];
+  for (const item of slots) {
+    if (!item?.effects) continue;
+    for (const eff of item.effects) {
+      if (eff.type === 'mp_bonus' && typeof eff.value === 'number') {
+        bonus += eff.value;
+      }
+    }
+  }
+  return bonus;
 }
 
 /** 6 维属性修正: base + buff + equipment. spec §7.2.1. */

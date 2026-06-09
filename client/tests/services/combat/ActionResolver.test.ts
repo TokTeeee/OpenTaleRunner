@@ -25,6 +25,8 @@ import {
   rollFlee,
   InsufficientAPError,
   _resetSharedResolver,
+  getEquipmentResistances,
+  getEquipmentMPBonus,
 } from '../../../src/services/combat/ActionResolver';
 import { useCombatStore } from '../../../src/stores/combatStore';
 import { useItemRegistryStore } from '../../../src/stores/itemRegistryStore';
@@ -454,5 +456,57 @@ describe('resolveWait', () => {
     const resolver = createActionResolver({ roll: makeConstRoll([1, 1, 1, 1]) });
     resolver.resolve({ kind: 'wait', userId: 'p1' }, useCombatStore.getState());
     expect(useCombatStore.getState().combatants.p1.ap).toBe(5);
+  });
+});
+
+// ============================================================
+// v0.6.3 装备效果汇总
+// ============================================================
+describe('v0.6.3 装备效果汇总', () => {
+  it('getEquipmentResistances 汇总 3 槽位抗性', () => {
+    const equipped = {
+      weapon: null,
+      armor: {
+        effects: [
+          { id: 'r1', type: 'elemental_resist', value: { fire: 20 }, description: '火抗' },
+        ],
+      } as any,
+      accessory: {
+        effects: [
+          { id: 'r2', type: 'elemental_resist', value: { ice: 15, fire: 10 }, description: '双抗' },
+        ],
+      } as any,
+    };
+    const result = getEquipmentResistances(equipped);
+    expect(result.fire).toBe(30);  // 20 + 10
+    expect(result.ice).toBe(15);
+  });
+
+  it('getEquipmentResistances 无装备返回空对象', () => {
+    const equipped = { weapon: null, armor: null, accessory: null };
+    const result = getEquipmentResistances(equipped);
+    expect(Object.keys(result)).toHaveLength(0);
+  });
+
+  it('getEquipmentMPBonus 汇总 MP 加成', () => {
+    const equipped = {
+      weapon: {
+        effects: [
+          { id: 'm1', type: 'mp_bonus', value: 5, description: 'MP+5' },
+        ],
+      } as any,
+      armor: null,
+      accessory: {
+        effects: [
+          { id: 'm2', type: 'mp_bonus', value: 10, description: 'MP+10' },
+        ],
+      } as any,
+    };
+    expect(getEquipmentMPBonus(equipped)).toBe(15);
+  });
+
+  it('getEquipmentMPBonus 无装备返回 0', () => {
+    const equipped = { weapon: null, armor: null, accessory: null };
+    expect(getEquipmentMPBonus(equipped)).toBe(0);
   });
 });
