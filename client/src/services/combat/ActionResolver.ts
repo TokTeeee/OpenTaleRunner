@@ -8,7 +8,7 @@
  *   闪避衰减: defender 每次成功闪避 +DODGE_PENALTY_STEP, 被命中则重置.
  * - v0.6.2: 新增 `ability` 动作 (魔法/祷告/战技, 3 学派 16 能力);
  *   伤害公式补 8 元素抗性 (fire/ice/lightning/wind/earth/arcane/holy/shadow):
- *   `final = base * (1 - resistance/200)`, clamp 到 [0, base];
+ *   `final = base * (1 - resistance/100)`, clamp 到 [0, base];
  *   MP 消耗走 ability.mpCost, MP 不足抛 InsufficientMPError;
  *   resolveAbility 走 AbilityResolver 拿 damage/heal/effect 副作用,
  *   再走 applyResistance + applyDamage 链路, 事件 ABILITY_USED.
@@ -647,7 +647,7 @@ export class ActionResolver {
       const reduction = preResistance - postResistance;
       log.push({
         kind: 'action', round: state.round, turn: state.turn,
-        message: `  抗性: ${preResistance}×(1-${resistanceValue}/200) ${resistanceValue > 0 ? `-${reduction}` : `+${Math.abs(reduction)}`}${resistanceValue > 0 ? '(抗性减免)' : '(弱点增伤)'}=${postResistance}`,
+        message: `  抗性: ${preResistance}×(1-${resistanceValue}/100) ${resistanceValue > 0 ? `-${reduction}` : `+${Math.abs(reduction)}`}${resistanceValue > 0 ? '(抗性减免)' : '(弱点增伤)'}=${postResistance}`,
         timestamp: ts,
       });
     }

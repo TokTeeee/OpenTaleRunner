@@ -114,9 +114,9 @@ describe('debugPresets', () => {
     expect(w.attributes.STR).toBe(14);
   });
 
-  it('v0.6.3: goblinScoutFireResist 带火抗防具 (fire=40)', () => {
+  it('v0.6.3: goblinScoutFireResist 带火抗防具 (装备词条 fire=40, 基础抗性=0)', () => {
     const g = goblinScoutFireResist();
-    expect(g.elementalResistances.fire).toBe(40);
+    expect(g.elementalResistances.fire).toBe(0); // 基础不含装备抗性, 由 mergeEquipmentBonuses 合并
     expect(g.equipped.armor?.name).toBe('抗火皮甲');
   });
 
@@ -124,6 +124,8 @@ describe('debugPresets', () => {
     const r = DEBUG_BATTLES.find((b) => b.id === 'debug_resist');
     expect(r).toBeDefined();
     expect(r?.category).toBe('item');
-    expect(r?.enemies[0]?.elementalResistances.fire).toBe(40);
+    // 基础抗性为 0, 装备词条 fire=40, 战斗初始化时合并为 fire=40
+    expect(r?.enemies[0]?.elementalResistances.fire).toBe(0);
+    expect(r?.enemies[0]?.equipped.armor?.effects[0]?.type).toBe('elemental_resist');
   });
 });

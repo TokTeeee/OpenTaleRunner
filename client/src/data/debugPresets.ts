@@ -129,7 +129,8 @@ export function goblinScoutFireResist(): Combatant {
         ],
       } as Item,
     },
-    elementalResistances: { ...ZERO_RESISTANCES, fire: 40 },
+    // 注意: elementalResistances 不含装备抗性, 由 mergeEquipmentBonuses 在战斗初始化时合并
+    elementalResistances: { ...ZERO_RESISTANCES },
   };
 }
 
