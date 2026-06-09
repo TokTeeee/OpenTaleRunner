@@ -383,7 +383,7 @@ describe('rollFlee (d100 <= chance*100)', () => {
   it('高 DEX vs 低 DEX: 100% 逃跑', () => {
     const p = makePlayer({ attributes: { STR: 10, DEX: 20, CON: 10, INT: 10, WIS: 10, CHA: 10 } });
     const e = makeEnemy('e1', { attributes: { STR: 10, DEX: 1, CON: 10, INT: 10, WIS: 10, CHA: 10 } });
-    const r = rollFlee(p, [e], defaultRoll);
+    const r = rollFlee(p, [e], makeConstRoll([1])); // d100=1 必成功
     expect(r.success).toBe(true);
   });
 
