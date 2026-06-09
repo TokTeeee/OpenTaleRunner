@@ -91,6 +91,20 @@ describe('debugPresets', () => {
     expect(mage.attributes.INT).toBe(16);
   });
 
+  it('v0.6.3: 法师变体装备学徒法杖, 无护甲', () => {
+    const mage = createDebugPlayer({
+      maxMp: 30,
+      learnedAbilities: [
+        { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+      ],
+    });
+    expect(mage.equipped.weapon?.name).toBe('学徒法杖');
+    expect(mage.equipped.weapon?.subCategory).toBe('staff');
+    expect(mage.equipped.weapon?.quality).toBe('精良');
+    expect(mage.equipped.armor).toBeNull();
+    expect(mage.equipped.accessory).toBeNull();
+  });
+
   it('v0.6.2: createDebugPlayer() 无参数时 = 战士 (name=测试勇者, mp=0)', () => {
     const w = createDebugPlayer();
     expect(w.name).toBe('测试勇者');

@@ -55,13 +55,28 @@ export function createDebugPlayer(options: DebugPlayerOptions = {}): Combatant {
     conditions: [],
     isDead: false,
     isFleeing: false,
-    equipped: {
-      weapon: { id: 'w1', name: '铁剑', slot: 'weapon', rarity: 'common', tags: [], description: '', value: 0,
-        effects: [{ id: 'e1', type: 'damage_bonus', value: 4, description: '+4 攻击' }] } as Item,
-      armor: { id: 'a1', name: '皮甲', slot: 'armor', rarity: 'common', tags: [], description: '', value: 0,
-        effects: [{ id: 'e1', type: 'defense_bonus', value: 1, description: '+1 防御' }] } as Item,
-      accessory: null,
-    },
+    equipped: learnedAbilities.length > 0
+      ? {
+          weapon: {
+            name: '学徒法杖',
+            category: 'weapon' as const,
+            subCategory: 'staff',
+            quality: '精良' as const,
+            effects: [
+              { id: 'base_int', type: 'attribute_mod' as const, value: { INT: 1 }, description: 'INT +1' },
+              { id: 'base_mp', type: 'mp_bonus' as const, value: 5, description: 'MP +5' },
+            ],
+          } as Item,
+          armor: null,
+          accessory: null,
+        }
+      : {
+          weapon: { id: 'w1', name: '铁剑', slot: 'weapon', rarity: 'common', tags: [], description: '', value: 0,
+            effects: [{ id: 'e1', type: 'damage_bonus', value: 4, description: '+4 攻击' }] } as Item,
+          armor: { id: 'a1', name: '皮甲', slot: 'armor', rarity: 'common', tags: [], description: '', value: 0,
+            effects: [{ id: 'e1', type: 'defense_bonus', value: 1, description: '+1 防御' }] } as Item,
+          accessory: null,
+        },
     elementalResistances: { ...ZERO_RESISTANCES },
     // v0.6.2 字段 (战斗 Combatant 形态, 不走 characterStore, 所以 learnedAbilities 留作占位 — 实际由 createDebugBattleMage 在战斗初始化时通过 startCombat 注入)
     ...(learnedAbilities.length > 0

@@ -39,12 +39,14 @@ import {
   fleeChance,
   rollFlee,
   noopQTEProvider,
+  createActionResolver,
 } from '../../../src/services/combat/ActionResolver';
 import { makeConstRoll } from '../../../src/services/combat/dice';
 import { registerCombatTools, unregisterCombatTools, _resetCombatEngine } from '../../../src/services/combat/combatTools';
 import { toolCallRegistry } from '../../../src/services/llm/ToolCallRegistry';
 import { useCombatStore, INITIAL_COMBAT_STATE } from '../../../src/stores/combatStore';
 import { resetClientStores } from '../../utils/resetStores';
+import { ZERO_RESISTANCES } from '../../../src/types/character';
 import type { Combatant } from '../../../src/services/combat/types';
 import type { Item, EffectType, ItemEffect } from '../../../src/types/item';
 
@@ -509,5 +511,82 @@ describe('regression: v0.3 startCombat args 契约 (via dispatch)', () => {
     expect(toolResult.ok).toBe(false);
     expect(toolResult.reason).toBeDefined();
     unregisterCombatTools();
+  });
+});
+
+// ============================================================
+// 5. v0.6.3 装备抗性在战斗中生效
+// ============================================================
+
+describe('regression: v0.6.3 装备抗性在战斗中生效', () => {
+  beforeEach(() => {
+    resetClientStores();
+    useCombatStore.setState({ ...INITIAL_COMBAT_STATE, phase: 'idle' });
+  });
+
+  function mkCombatant(over: Partial<Combatant>): Combatant {
+    return {
+      id: 'x', side: 'player', name: 'X',
+      attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+      hp: 30, maxHp: 30, ap: 6, maxAp: 6,
+      conditions: [], isDead: false, isFleeing: false,
+      equipped: { weapon: null, armor: null, accessory: null },
+      elementalResistances: { ...ZERO_RESISTANCES },
+      ...over,
+    };
+  }
+
+  it('火抗+20 的敌人受火球术时减伤 (公式: 1 - resistance/100)', () => {
+    // 场景 A: 无火抗的敌人受火球术
+    useCombatStore.setState({
+      combatants: {
+        p1: mkCombatant({
+          id: 'p1', side: 'player', name: '法师',
+          attributes: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 15, CHA: 13 },
+          mp: 30, maxMp: 30,
+        }),
+        e1: mkCombatant({ id: 'e1', side: 'enemy', name: '敌人' }),
+      },
+    });
+    const resolver1 = createActionResolver({
+      roll: makeConstRoll([20, 4]),
+      qte: () => ({ accuracy: 1, modifier: 0, type: 'magic' as const }),
+    });
+    resolver1.resolve(
+      { kind: 'ability', userId: 'p1', abilityId: 'spell_fire_bolt', targetId: 'e1' } as any,
+      useCombatStore.getState(),
+    );
+    const dmgNoResist = 30 - useCombatStore.getState().combatants.e1.hp;
+
+    // 场景 B: 有火抗+20 的敌人受火球术
+    useCombatStore.setState({
+      combatants: {
+        p1: mkCombatant({
+          id: 'p1', side: 'player', name: '法师',
+          attributes: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 15, CHA: 13 },
+          mp: 30, maxMp: 30,
+        }),
+        e2: mkCombatant({
+          id: 'e2', side: 'enemy', name: '火抗敌人',
+          elementalResistances: { ...ZERO_RESISTANCES, fire: 20 },
+        }),
+      },
+    });
+    const resolver2 = createActionResolver({
+      roll: makeConstRoll([20, 4]),
+      qte: () => ({ accuracy: 1, modifier: 0, type: 'magic' as const }),
+    });
+    resolver2.resolve(
+      { kind: 'ability', userId: 'p1', abilityId: 'spell_fire_bolt', targetId: 'e2' } as any,
+      useCombatStore.getState(),
+    );
+    const dmgWithResist = 30 - useCombatStore.getState().combatants.e2.hp;
+
+    // 火抗+20 → 20% 减伤 (公式: 1 - 20/100 = 0.8)
+    // 无抗性: d6=4 + INT_MOD(16→+3) = 7
+    // 有火抗20: round(7 × 0.8) = 6
+    expect(dmgNoResist).toBe(7);
+    expect(dmgWithResist).toBe(6);
+    expect(dmgWithResist).toBeLessThan(dmgNoResist);
   });
 });
