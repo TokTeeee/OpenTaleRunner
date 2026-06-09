@@ -470,3 +470,86 @@ For AI-driven gameplay experiences, AutoPlay is expected to evolve from a single
 For globalization and offline capabilities, an internationalization framework will be built, implementing an English UI and multi-language prompt template system. Persistent storage will migrate from localStorage to IndexedDB, providing greater storage capacity and more structured data management. On this foundation, a Service Worker will be introduced, giving the client progressive offline capability.
 
 In the long term, the goal is to deliver a Tauri desktop application with native-level performance and system integration. A plugin system will be built to open the door for third-party extensions, which will serve as the foundation for incubating a community mod marketplace — extending Aeslan's ecosystem from the development team to every player.
+
+## Seven. v0.6.2 Ability System and Combat Integration
+
+On 2026-06-07, building on the v0.6.1 Spell/Prayer dual-type foundation, the data model was refactored to a unified `Ability`, and the ability system was fully integrated into the combat loop. This section summarizes the architecture-level changes in this round.
+
+### 7.1 Core Changes
+
+- **`Ability` type**: Unified representation of 3 schools — `magic` (fire/ice/lightning/wind/earth/arcane — 6 spells), `prayer` (holy×4 + shadow×2 — 6 prayers), `battle_art` (warrior smash/rogue rend/arcane shield/blessed strike — 4 battle arts). 16 initial abilities defined in `data/abilities/`.
+- **`Character` adds 5 fields**: `elementalResistances: ElementalResistances` (8 elements, -100~100), `learnedAbilities: LearnedAbility[]`, `defaultLearnedAbilities: string[]` (auto-learned on debug start), `mp` / `maxMp` (mana points, dual resource with AP).
+- **`Combatant` adds 1 field**: `elementalResistances: ElementalResistances` (synced from character at initialization).
+- **`CombatAction` adds 1 kind**: `{ kind: 'ability'; userId; abilityId; targetId? }`.
+- **`ActionResolver.resolveAbility` path**: Handles damage/heal/buff 3 effects uniformly, includes resistance formula `(1 - resistance/200)`, QTE scaling, AP/MP deduction, and throws `InsufficientAPError` on insufficient AP.
+
+### 7.2 Resistance Formula (`applyResistance`)
+
+`applyResistance(baseDamage, resistance)`:
+
+| Resistance | Damage Multiplier | Example: Base 8 |
+|------------|-------------------|-----------------|
+| +100 (full resist) | 0 | 0 |
+| +50 | 0.75 | 6 |
+| 0 | 1.0 | 8 |
+| -25 (weak) | 1.125 | 9 |
+| -100 (full weak) | 1.5 | 12 |
+
+Implementation: `src/services/abilities/applyResistance.ts`. 8 element constants in `data/abilities/elements.ts`.
+
+### 7.3 4 Battle Art Special Effects
+
+| Battle Art | Special Effect | Implementation |
+|------------|----------------|----------------|
+| `skill_warrior_smash` (Smash) | `high_crit`: Hit d20 ≥ 18 is treated as crit (damage ×1.5) | `applySpecial.ts` |
+| `skill_rogue_rend` (Rend) | `armor_pierce`: Ignore target's armor defense | `applySpecial.ts` |
+| `skill_mage_arcane_shield` (Arcane Shield) | `self_buff`: Add `shield` buff (absorb 8) to caster | `applySpecial.ts` |
+| `skill_paladin_blessed_strike` (Blessed Strike) | `life_steal + damage`: 30% of damage converted to healing | `applySpecial.ts` |
+
+### 7.4 UI Components
+
+- **`ActionMenu`**: 6-button layout (added "Skill" button on top of original 5)
+- **`SkillPickerPopover`**: 3-tab popup (Magic / Prayer / Battle Art), rendered with React Portal
+- **`ResistanceDisplay`**: 8-element resistance chips (cyan=resist / rose=weak / gray=neutral), with `showZeros` / `compact` modes
+- **`CombatantCard`**: Show non-zero resistance chips below HP bar
+- **`DebugModeModal`**: Added `ability` difficulty (purple `SPELL` label), alongside existing `easy`/`normal`/`hard`
+
+### 7.5 Narrative Hook (Event System Integration)
+
+Added `ABILITY_USED` event (`events.ts`), payload:
+
+```typescript
+{ abilityId, userId, targetId, school, element, success, damage?, heal? }
+```
+
+Trigger timing: `resolveAbility` success path (damage/heal/buff); on d20=1 miss, emits with `success: false`. Error paths (insufficient AP, unknown abilityId) do not emit. For LLM / narrative system subscription. See `services/event/events.ts`.
+
+### 7.6 New Mutators (`characterStore`)
+
+```typescript
+learnAbility(abilityId): void   // Idempotent, added with the ability's real school
+forgetAbility(abilityId): void  // Remove from learnedAbilities
+setResistance(element, value): void  // Clamp to [-100, 100]
+```
+
+### 7.7 Debug Presets
+
+`debug_ability` difficulty: Mage (INT 16, MP 20/20) + a single Goblin Scout, character pre-learns `spell_fire_bolt`. `createDebugPlayerFactory(options?)` accepts `learnedAbilities` / `maxMp` fields. See `data/debugPresets.ts`.
+
+### 7.8 Key Commits
+
+```
++ v0.6.2 ability data (16 abilities, 3 schools)
++ v0.6.2 Character extension (learnedAbilities / elementalResistances / mp)
++ v0.6.2 Combatant.elementalResistances
++ v0.6.2 resolveAbility + applyResistance + applySpecial
++ v0.6.2 ActionMenu 6 buttons + SkillPickerPopover
++ v0.6.2 ResistanceDisplay + CombatantCard resistance chips
++ v0.6.2 characterStore.learnAbility / forgetAbility / setResistance
++ v0.6.2 debug_ability preset
++ v0.6.2 ABILITY_USED event
++ v0.6.2 resetStores migration (src/utils/) + v0.6.2 field reset
++ v0.6.2 e2e test (tests/e2e/abilityCombat.test.ts)
+```
+
+See `docs/superpowers/specs/2026-06-07-v0.6.2-combat-ability-integration-design.md`.
