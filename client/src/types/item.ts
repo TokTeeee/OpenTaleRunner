@@ -3,7 +3,7 @@ export type ItemCategory = 'weapon' | 'armor' | 'accessory' | 'consumable' | 'ma
 export type EffectType =
   | 'damage_bonus' | 'defense_bonus' | 'attribute_mod'
   | 'hp_restore' | 'hp_max_bonus' | 'vital_restore'
-  | 'elemental_damage' | 'elemental_resist'
+  | 'elemental_damage' | 'elemental_resist' | 'mp_bonus'
   | 'skill_bonus' | 'light_source' | 'special'
   // v0.4-item 词条池扩展 (武器/防具/饰品/消耗品 affix)
   | 'critical' | 'attack_speed' | 'hp_steal'
