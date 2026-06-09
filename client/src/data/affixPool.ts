@@ -45,6 +45,7 @@ export function drawAffixes(
   category: ItemCategory,
   quality: ItemQuality,
   rng: RNG = defaultRng,
+  subCategory?: string,
 ): ItemEffect[] {
   // 防御: 不在 4 主品类时返空 (material/key_item/container 暂不参与)
   if (!isPoolKey(category)) return [];
@@ -54,8 +55,8 @@ export function drawAffixes(
     ? range.min
     : range.min + rng.int(range.max - range.min + 1);
 
-  const buffs = drawBuffs(category, quality, buffCount, rng);
-  const debuff = rollDebuff(category, quality, rng);
+  const buffs = drawBuffs(category, quality, buffCount, rng, subCategory);
+  const debuff = rollDebuff(category, quality, rng, subCategory);
   return debuff ? [...buffs, debuff] : buffs;
 }
 
@@ -67,9 +68,13 @@ export function drawBuffs(
   quality: ItemQuality,
   count: number,
   rng: RNG = defaultRng,
+  subCategory?: string,
 ): ItemEffect[] {
   if (count <= 0) return [];
-  const candidates = AFFIX_POOLS[category].buffs.filter((a) => qualityAtLeast(quality, a.minQuality));
+  const candidates = AFFIX_POOLS[category].buffs.filter((a) =>
+    qualityAtLeast(quality, a.minQuality) &&
+    (!a.minSubCategory || a.minSubCategory === subCategory)
+  );
   if (candidates.length === 0) return [];
   return Array.from({ length: count }, () => weightedPick(candidates, rng).effect);
 }
@@ -78,6 +83,7 @@ export function rollDebuff(
   category: AffixPoolKey,
   quality: ItemQuality,
   rng: RNG = defaultRng,
+  _subCategory?: string,
 ): ItemEffect | null {
   if (rng.next() >= DEBUFF_PROBABILITY[quality]) return null;
   const candidates = AFFIX_POOLS[category].debuffs.filter((a) => qualityAtLeast(quality, a.minQuality));

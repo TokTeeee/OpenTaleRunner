@@ -2,7 +2,7 @@
  * 物品词条池 — API 层逻辑测试
  */
 import { describe, expect, it } from 'vitest';
-import { drawAffixes, type RNG } from '../../src/data/affixPool';
+import { drawAffixes, drawBuffs, type RNG } from '../../src/data/affixPool';
 
 // 测试用确定性 RNG: next() 总是返 0.5, int() 总是返 0
 const fixedRng: RNG = { next: () => 0.5, int: () => 0 };
@@ -148,5 +148,28 @@ describe('权重分布 (1000 采样)', () => {
       }
     }
     expect(dmgCount).toBeGreaterThan(critCount);
+  });
+});
+
+describe('v0.6.3 minSubCategory 过滤', () => {
+  it('法杖专属词条在 subCategory=staff 时可抽取', () => {
+    const rng = { next: () => 0.99, int: (n: number) => n - 1 };
+    const buffs = drawBuffs('weapon', '精良', 20, rng, 'staff');
+    const hasStaffAffix = buffs.some(b => b.id === 'staff_int_1' || b.id === 'staff_mp_1');
+    expect(hasStaffAffix).toBe(true);
+  });
+
+  it('法杖专属词条在 subCategory 未指定时不可抽取', () => {
+    const rng = { next: () => 0.99, int: (n: number) => n - 1 };
+    const buffs = drawBuffs('weapon', '精良', 20, rng);
+    const hasStaffAffix = buffs.some(b => b.id === 'staff_int_1' || b.id === 'staff_mp_1');
+    expect(hasStaffAffix).toBe(false);
+  });
+
+  it('圣印记专属词条在 subCategory=holy_symbol 时可抽取', () => {
+    const rng = { next: () => 0.99, int: (n: number) => n - 1 };
+    const buffs = drawBuffs('weapon', '精良', 20, rng, 'holy_symbol');
+    const hasSymbolAffix = buffs.some(b => b.id === 'symbol_wis_1' || b.id === 'symbol_mp_1');
+    expect(hasSymbolAffix).toBe(true);
   });
 });
