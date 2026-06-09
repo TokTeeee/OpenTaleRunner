@@ -23,6 +23,8 @@ import { toolCallRegistry } from '../llm/ToolCallRegistry';
 import { CombatEngine, NoopResolver } from './CombatEngine';
 import { evaluate, describePenalty, failurePenaltyFor, InvalidCombatantError } from './BalanceEvaluator';
 import type { Combatant, BalanceRating, CombatOutcome } from './types';
+import type { ElementalResistances } from '../../types/character';
+import { getEquipmentResistances, getEquipmentMPBonus } from './ActionResolver';
 
 // ============================================================
 // 错误
@@ -190,7 +192,28 @@ async function startCombatHandler(args: unknown): Promise<CombatToolResult> {
   if (!v.ok) {
     return { ok: false, reason: v.reason };
   }
-  const { combatId, player, party = [], enemies, narrativeOpening, recommendedDifficulty } = v.data;
+  const { combatId, player: rawPlayer, party: rawParty = [], enemies: rawEnemies, narrativeOpening, recommendedDifficulty } = v.data;
+
+  // Merge equipment resistances and MP bonuses into combatants
+  const mergeEquipmentBonuses = (c: Combatant): Combatant => {
+    const equipResists = getEquipmentResistances(c.equipped);
+    const mpBonus = getEquipmentMPBonus(c.equipped);
+    return {
+      ...c,
+      elementalResistances: {
+        ...c.elementalResistances,
+        ...Object.fromEntries(
+          Object.entries(equipResists).map(([k, v]) => [k, (c.elementalResistances[k as keyof ElementalResistances] ?? 0) + v])
+        ),
+      } as ElementalResistances,
+      maxMp: (c.maxMp ?? 0) + mpBonus,
+      mp: (c.mp ?? 0) + mpBonus,
+    };
+  };
+
+  const player = mergeEquipmentBonuses(rawPlayer);
+  const party = rawParty.map(mergeEquipmentBonuses);
+  const enemies = rawEnemies.map(mergeEquipmentBonuses);
 
   // 检查 phase: 不在 idle 时拒绝 (避免重复启动)
   const store = useCombatStore.getState();

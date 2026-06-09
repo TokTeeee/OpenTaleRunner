@@ -11,7 +11,9 @@ import { useCharacterStore } from '../../stores/characterStore';
 import { registerCombatTools } from './combatTools';
 import type { Combatant, BalanceRating } from './types';
 import type { Character } from '../../types/character';
+import type { ElementalResistances } from '../../types/character';
 import { ZERO_RESISTANCES } from '../../types/character';
+import { getEquipmentResistances, getEquipmentMPBonus } from './ActionResolver';
 import type { DebugBattle } from '../../data/debugPresets';
 import { createDebugPlayer as createDebugPlayerFactory } from '../../data/debugPresets';
 
@@ -26,6 +28,9 @@ export function createDebugPlayer(): Combatant {
 function makeDebugMageCharacter(preset: DebugBattle): Character {
   const learned = preset.playerOptions?.learnedAbilities ?? [];
   const maxMp = preset.playerOptions?.maxMp ?? 20;
+  const equipped = { weapon: null, armor: null, accessory: null } as Character['inventory']['equipped'];
+  const equipResists = getEquipmentResistances(equipped);
+  const mpBonus = getEquipmentMPBonus(equipped);
   return {
     characterId: `debug_mage_${preset.id}_${Date.now()}`,
     playerId: 'debug_mage',
@@ -36,12 +41,12 @@ function makeDebugMageCharacter(preset: DebugBattle): Character {
     attributes: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 15, CHA: 13 },
     skills: [],
     inventory: {
-      equipped: { weapon: null, armor: null, accessory: null },
+      equipped,
       backpack: [],
       currency: { gold: 0, silver: 0, copper: 0 },
     },
     hp: 30, maxHp: 30,
-    mp: maxMp, maxMp,
+    mp: maxMp + mpBonus, maxMp: maxMp + mpBonus,
     vital: { hunger: 0, thirst: 0, fatigue: 0, hygiene: 0, morale: 0, wound: 0, temperature: 0, encumbrance: 0 },
     reputation: { goodness: 0, violence: 0, lawfulness: 0, regional: {} },
     conditions: [],
@@ -62,7 +67,12 @@ function makeDebugMageCharacter(preset: DebugBattle): Character {
     unspentAttributePoints: 0,
     classId: 'mage',
     classSkills: [],
-    elementalResistances: { ...ZERO_RESISTANCES },
+    elementalResistances: {
+      ...ZERO_RESISTANCES,
+      ...Object.fromEntries(
+        Object.entries(equipResists).map(([k, v]) => [k, (ZERO_RESISTANCES[k as keyof ElementalResistances] ?? 0) + v])
+      ),
+    } as ElementalResistances,
     learnedAbilities: [...learned],
     defaultLearnedAbilities: learned.map((la) => la.abilityId),
   };
