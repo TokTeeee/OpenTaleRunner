@@ -58,9 +58,9 @@ export interface EndCombatArgs {
   appliedBalanceRating: BalanceRating;
   /** loot 列表 (item template ids 或 currency 描述) */
   loot?: string[];
-  /** 玩家 final 状态 — 用于同步 HP / conditions */
+  /** 玩家 final 状态 — 用于同步 HP / MP / conditions */
   finalState?: {
-    player: { hp: number; maxHp: number; conditions?: string[] };
+    player: { hp: number; maxHp: number; mp?: number; conditions?: string[] };
     deadEnemies?: number;
   };
   /** LLM 在 endCombat 给的收尾叙事 (v0.4 由 LLM 直接写, 客户端可为空) */
@@ -101,7 +101,7 @@ function validateStartCombatArgs(args: unknown): { ok: true; data: StartCombatAr
   if (a.party && !Array.isArray(a.party)) {
     return { ok: false, reason: 'party 必须是数组' };
   }
-  if (a.recommendedDifficulty && !['trivial', 'normal', 'hard', 'deadly'].includes(a.recommendedDifficulty as string)) {
+  if (a.recommendedDifficulty && !['trivial', 'normal', 'hard', 'deadly', 'ability'].includes(a.recommendedDifficulty as string)) {
     return { ok: false, reason: `recommendedDifficulty 不合法: ${a.recommendedDifficulty}` };
   }
   return {
@@ -275,13 +275,17 @@ async function endCombatHandler(args: unknown): Promise<CombatToolResult> {
       const finalMaxHp = finalState.player.maxHp;
       // survives 由 failurePenalty 决定; finalState.player.hp=0 但 survives 时不打入 0
       charStore.updateHP(finalHp);
+      // MP 同步
+      if (finalState.player.mp != null && char.maxMp > 0) {
+        charStore.updateMP(finalState.player.mp);
+      }
       // conditions 追加
       if (Array.isArray(finalState.player.conditions)) {
         for (const cond of finalState.player.conditions) {
           charStore.addCondition?.(cond);
         }
       }
-      logger.info('combatTools', `finalState applied: HP=${finalHp}/${finalMaxHp}`);
+      logger.info('combatTools', `finalState applied: HP=${finalHp}/${finalMaxHp}, MP=${finalState.player.mp ?? '-'}/${char.maxMp || '-'}`);
     }
   }
 

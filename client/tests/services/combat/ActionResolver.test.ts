@@ -1,11 +1,17 @@
 /**
- * v0.5-dev 战斗系统 — ActionResolver 单元测试
+ * v0.6.x 战斗系统 — ActionResolver 单元测试
  *
- * v0.5-dev 变更:
- * - 命中公式: d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty
- * - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
- * - 移除 `skill` 动作的 8 个用例
- * - 保留 dodge 衰减, 验证 DODGE_PENALTY_STEP=5 与命中后归零
+ * 历史变更:
+ * - v0.5-dev:
+ *   - 命中公式: d20 + DEX_mod vs max(5, 10 + DEX_mod + defense - dodgePenalty)
+ *   - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
+ *   - 移除 `skill` 动作的 8 个用例
+ *   - 保留 dodge 衰减, 验证 DODGE_PENALTY_STEP=5 与命中后归零
+ *   - v0.6.2 修正: dodgePenalty 从门槛中扣除 (连续闪避使门槛降低, 更易被命中)
+ * - v0.6.2: 新增 `ability` 动作的 8+ 个用例 (3 学派 16 能力);
+ *   8 元素抗性公式 (fire/ice/lightning/wind/earth/arcane/holy/shadow):
+ *   `final = base * (1 - resistance/200)`, clamp [0, base];
+ *   MP 不足抛 InsufficientMPError; 事件 ABILITY_USED 触发.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -131,7 +137,7 @@ describe('rollToHit (d20 + DEX 修正)', () => {
 // ============================================================
 // 公式: hitThreshold
 // ============================================================
-describe('hitThreshold (10 + DEX + defense + dodgePenalty + defending)', () => {
+describe('hitThreshold (10 + DEX + defense - dodgePenalty + defending)', () => {
   it('DEX 14 + armor 3: 10 + 2 + 3 = 15', () => {
     const t = hitThreshold(
       makeEnemy('e1', {
@@ -155,16 +161,28 @@ describe('hitThreshold (10 + DEX + defense + dodgePenalty + defending)', () => {
       true,
     );
     expect(t.defendingBonus).toBe(2);
-    expect(t.total).toBe(12); // 10 + 0 + 0 + 0 + 2
+    expect(t.total).toBe(12); // 10 + 0 + 0 - 0 + 2
   });
 
-  it('dodgePenalty 累积纳入门槛', () => {
+  it('dodgePenalty 从门槛中扣除 (连续闪避使门槛降低, 更易被命中)', () => {
     const t = hitThreshold(
       makeEnemy('e1'),
-      15, // 累积 15 点
+      15, // 累积 15 点衰减
       false,
     );
-    expect(t.total).toBe(25);
+    expect(t.total).toBe(5); // max(5, 10 + 0 + 0 - 15 + 0) = max(5, -5) = 5 (保底)
+  });
+
+  it('dodgePenalty 小于基础门槛时正常扣除', () => {
+    const t = hitThreshold(
+      makeEnemy('e1', {
+        attributes: { STR: 10, DEX: 14, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+        equipped: { weapon: null, armor: makeArmor(3), accessory: null },
+      }),
+      5, // 5 点衰减
+      false,
+    );
+    expect(t.total).toBe(10); // 10 + 2 + 3 - 5 + 0 = 10
   });
 });
 
@@ -279,7 +297,7 @@ describe('resolveAttack 端到端', () => {
     ).toThrow(InsufficientAPError);
   });
 
-  it('未命中不扣 HP, 闪避衰减 +5', () => {
+  it('未命中不扣 HP, 闪避衰减 -5 (门槛降低)', () => {
     // 玩家 d20=5, DEX=14 → toHit=7; 敌人 DEX=10 + armor=0 → 门槛=10. 7<10 闪避.
     useCombatStore.setState({
       combatants: {
@@ -289,19 +307,17 @@ describe('resolveAttack 端到端', () => {
         e1: makeEnemy('e1'),
       },
     });
-    const resolver = createActionResolver({ roll: makeConstRoll([5, 4]) });
+    // 第一次: d20=5 → toHit=7 < 门槛=10 → 闪避 (消耗 1 个 roll 值)
+    // 第二次: d20=5 → toHit=7 ≥ 门槛=5 → 命中, d6=4 → damage=4 (消耗 2 个 roll 值)
+    const resolver = createActionResolver({ roll: makeConstRoll([5, 5, 4]) });
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
     expect(useCombatStore.getState().combatants.e1.hp).toBe(20); // 未扣
     expect(useCombatStore.getState().combatants.p1.ap).toBe(4); // 仍扣 AP (2)
 
-    // 第二次同样未命中: 门槛 = 10 + 0 + 0 + 5 = 15; toHit=7 仍 < 15, 衰减 → 10
+    // 第二次: 门槛 = max(5, 10 + 0 + 0 - 5 + 0) = 5; toHit=7 ≥ 5 → 命中!
+    // 衰减使门槛降低到 5, 连续闪避后更易被命中
     resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
-    expect(useCombatStore.getState().combatants.e1.hp).toBe(20);
-
-    // 第三次攻击: d20=20, DEX=14 → toHit=22 ≥ 15 命中, 衰减归零
-    const resolver2 = createActionResolver({ roll: makeConstRoll([20, 4]) });
-    resolver2.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
-    // 命中: damage = d6=4 + STR_mod=0 + weapon=0 - defense=0 = 4
+    // toHit=7 ≥ 门槛=5, 命中! damage = d6=4 + STR_mod=0 + weapon=0 - defense=0 = 4
     expect(useCombatStore.getState().combatants.e1.hp).toBe(16); // 20 - 4
   });
 

@@ -11,6 +11,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { DEBUG_BATTLES, type DebugBattle } from '../../data/debugPresets';
 import { startDebugBattle } from '../../services/combat/debugCombatStarter';
 import { useCombatStore, INITIAL_COMBAT_STATE } from '../../stores/combatStore';
+import type { CombatPhase } from '../../services/combat/types';
 import { useGameStore } from '../../stores/gameStore';
 
 export interface DebugModeModalProps {
@@ -40,6 +41,9 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
   const [internalShow, setInternalShow] = useState(open);
   const [error, setError] = useState<string | null>(null);
   const settledTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 追踪上一帧的 phase, 避免 "起始 idle" 被误判为 "战斗结束"
+  // (startDebugBattle 会先 reset combatStore.phase='idle' 再启动, 跟 settled 后 idle 难以区分)
+  const prevPhaseRef = useRef<CombatPhase>('idle');
 
   // 同步外部 open prop 到 internalShow
   useEffect(() => {
@@ -48,17 +52,26 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
   }, [open]);
 
   // 监听战斗结束 → 自动重开 modal
+  // 仅在从 active/resolving/initializing 转入 settled (endCombat 正常路径) 时触发,
+  // 避免 startDebugBattle 内部 'idle' reset 误判.
   useEffect(() => {
-    if (pendingReturn && (phase === 'settled' || phase === 'idle')) {
+    const prev = prevPhaseRef.current;
+    const isStartReset = prev === 'idle' && phase === 'idle'; // 起始就 idle, 不算结束
+    if (
+      pendingReturn &&
+      !isStartReset &&
+      (prev === 'active' || prev === 'resolving' || prev === 'initializing') &&
+      phase === 'settled'
+    ) {
       // 战斗结束, 清理状态 + 自开 modal
       useCombatStore.setState({ ...INITIAL_COMBAT_STATE, phase: 'idle' });
       useGameStore.getState().setDebugMode(false);
       useGameStore.getState().setPhase('title');
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- 战斗结束回调, 触发自管理重开循环
       setPendingReturn(false);
       setError(null);
       setInternalShow(true);
     }
+    prevPhaseRef.current = phase;
   }, [phase, pendingReturn]);
 
   // 30s 兜底: phase 卡 settled 永不回 → 强制重置

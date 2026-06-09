@@ -150,13 +150,13 @@ describe('regression: v0.5-dev 6 维公式契约 (命中/闪避/伤害/flee)', (
     expect(r.total).toBe(12);
   });
 
-  it('命中门槛: 10 + DEX_mod + armor + dodgePenalty (v0.5-dev 文档版)', () => {
+  it('命中门槛: 10 + DEX_mod + armor - dodgePenalty (v0.6.x 闪避衰减修正)', () => {
     const c = mkCombatant({
       attributes: { ...mkCombatant({}).attributes, DEX: 16 },
       equipped: { weapon: null, armor: { id: 'a1', name: '甲', slot: 'armor', effects: [{ type: 'defense_bonus', value: 3 }] } as never, accessory: null },
     });
     const t = hitThreshold(c, 0, false);
-    // DEX 16 → +3, defense=3 → 10+3+3+0 = 16
+    // DEX 16 → +3, defense=3 → 10+3+3-0 = 16
     expect(t.dexMod).toBe(3);
     expect(t.defense).toBe(3);
     expect(t.total).toBe(16);
@@ -166,14 +166,14 @@ describe('regression: v0.5-dev 6 维公式契约 (命中/闪避/伤害/flee)', (
     const c = mkCombatant({});
     const t = hitThreshold(c, 0, true);
     expect(t.defendingBonus).toBe(2);
-    expect(t.total).toBe(12); // 10 + 0 + 0 + 0 + 2
+    expect(t.total).toBe(12); // 10 + 0 + 0 - 0 + 2
   });
 
-  it('命中门槛: dodgePenalty 累积 (v0.5-dev 闪避衰减)', () => {
+  it('命中门槛: dodgePenalty 从门槛扣除 (v0.6.x 闪避衰减修正: 连续闪避使门槛降低)', () => {
     const c = mkCombatant({});
     const t = hitThreshold(c, 15, false);
-    // 10 + 0 + 0 + 15 + 0 = 25
-    expect(t.total).toBe(25);
+    // max(5, 10 + 0 + 0 - 15 + 0) = max(5, -5) = 5 (保底)
+    expect(t.total).toBe(5);
   });
 
   it('checkHit: attackRoll >= threshold → true (v0.5-dev 平局算命中)', () => {

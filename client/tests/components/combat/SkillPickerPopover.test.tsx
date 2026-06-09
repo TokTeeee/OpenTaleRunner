@@ -14,6 +14,8 @@ const baseCharacter = (overrides = {}) => ({
   level: 5,
   attributes: { STR: 10, DEX: 10, CON: 10, INT: 16, WIS: 14, CHA: 10 },
   elementalResistances: { ...ZERO_RESISTANCES },
+  hp: 30, maxHp: 30,
+  mp: 30, maxMp: 30,
   learnedAbilities: [
     { abilityId: 'spell_fire_bolt', school: 'magic' as const, learnedAt: 0 },
     { abilityId: 'spell_ice_lance', school: 'magic' as const, learnedAt: 0 },
@@ -76,5 +78,25 @@ describe('SkillPickerPopover', () => {
     render(<SkillPickerPopover onSelect={() => {}} onClose={() => {}} />);
     expect(screen.getByTestId('ability-card-spell_fire_bolt')).toBeInTheDocument();
     expect(screen.queryByTestId('ability-card-spell_ice_lance')).toBeNull();
+  });
+
+  it('MP 不足时技能灰化不可点击', () => {
+    const onSelect = vi.fn();
+    useCharacterStore.setState({ character: baseCharacter({ mp: 0, maxMp: 30 }) } as any);
+    render(<SkillPickerPopover onSelect={onSelect} onClose={() => {}} />);
+    const card = screen.getByTestId('ability-card-spell_fire_bolt');
+    expect(card).toBeDisabled();
+    fireEvent.click(card);
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('MP 充足时技能可点击', () => {
+    const onSelect = vi.fn();
+    useCharacterStore.setState({ character: baseCharacter({ mp: 30, maxMp: 30 }) } as any);
+    render(<SkillPickerPopover onSelect={onSelect} onClose={() => {}} />);
+    const card = screen.getByTestId('ability-card-spell_fire_bolt');
+    expect(card).not.toBeDisabled();
+    fireEvent.click(card);
+    expect(onSelect).toHaveBeenCalledWith('spell_fire_bolt');
   });
 });

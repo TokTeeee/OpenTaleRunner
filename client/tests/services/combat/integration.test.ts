@@ -1,12 +1,15 @@
 /**
- * v0.5-dev 战斗系统 — 集成测试 (T7.2)
+ * v0.6.x 战斗系统 — 集成测试 (T7.2)
  *
- * 端到端验证 6 维公式 + QTE + 物品路由 + 失败惩罚 的协同工作:
+ * 端到端验证 6 维公式 + QTE + 物品路由 + 失败惩罚 + ability 解析 的协同工作:
  *
- * v0.5-dev 变更:
- * - 命中公式: d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty
- * - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
- * - 移除 skill 相关用例
+ * 历史变更:
+ * - v0.5-dev:
+ *   - 命中公式: d20 + DEX_mod vs max(5, 10 + DEX_mod + defense - dodgePenalty)
+ *   - 伤害公式: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
+ *   - 移除 skill 相关用例
+ * - v0.6.2: 新增 ability 端到端用例 (SkillPicker → resolveAbility → applyResistance
+ *   → ABILITY_USED 事件 → store 同步); 8 元素抗性 fan-out (法师释放火球命中 2 敌).
  *
  * 场景:
  *  1. startCombat → 回合循环 (本地, 无 LLM) → endCombat, 整场 2 次 LLM 调用
@@ -16,6 +19,8 @@
  *  5. 逃跑成功 / 失败: 战斗结束条件分支
  *  6. QTE 开启 + 攻击: 6 维公式不变, 伤害 ±30% (modifier 缩放)
  *  7. QTE 关闭 + 攻击: 伤害 = base (modifier=0)
+ *  8. ability (v0.6.2): 火球命中 → applyResistance(抗性 0) → applyDamage
+ *      → ABILITY_USED 事件 → fan-out 写多 combatant
  *
  * 详见: docs/zh/战斗系统.md §2.6
  */

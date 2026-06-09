@@ -58,6 +58,9 @@ export function subscribeCharacterExpEvents(opts: SubscribeOptions = {}): () => 
     const character = useCharacterStore.getState().character;
     if (!character?.characterId) return;
 
+    // v0.6.2: 跳过 debug 合成角色 (characterId 以 'debug_mage_' 开头), 无服务端身份, PATCH 必 401
+    if (character.characterId.startsWith('debug_mage_')) return;
+
     const url = `${getBaseUrl()}/api/v1/characters/${character.characterId}/exp`;
     const token = getAuthToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };

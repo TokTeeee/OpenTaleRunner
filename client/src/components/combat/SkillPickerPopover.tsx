@@ -11,6 +11,7 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useCharacterStore } from '../../stores/characterStore';
+import { useCombatStore } from '../../stores/combatStore';
 import { getLearnedAbilities } from '../../data/abilities';
 import {
   type Ability,
@@ -24,12 +25,17 @@ import {
 interface SkillPickerPopoverProps {
   onSelect: (abilityId: string) => void;
   onClose: () => void;
+  /** 玩家 combatant ID, 用于读取当前 MP */
+  playerId?: string;
 }
 
 const TABS: AbilitySchool[] = ['magic', 'prayer', 'battle_art'];
 
-export function SkillPickerPopover({ onSelect, onClose }: SkillPickerPopoverProps) {
+export function SkillPickerPopover({ onSelect, onClose, playerId }: SkillPickerPopoverProps) {
   const character = useCharacterStore((s) => s.character);
+  const combatants = useCombatStore((s) => s.combatants);
+  const playerCombatant = playerId ? combatants[playerId] : null;
+  const currentMp = playerCombatant?.mp ?? character?.mp ?? 0;
   const learned = useMemo<Ability[]>(
     () => (character ? getLearnedAbilities(character) : []),
     [character],
@@ -89,33 +95,40 @@ export function SkillPickerPopover({ onSelect, onClose }: SkillPickerPopoverProp
               未学习任何 {SCHOOL_LABELS[tab]}
             </div>
           )}
-          {tabAbilities.map((a) => (
-            <button
-              key={a.id}
-              data-testid={`ability-card-${a.id}`}
-              onClick={() => onSelect(a.id)}
-              className="w-full text-left p-3 rounded-lg
-                         bg-ink-800/60 hover:bg-ink-800
-                         border border-ink-700/40 hover:border-gold-400/40
-                         transition-colors"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-lg">
-                  {a.element ? ELEMENT_ICONS[a.element] : '⚔️'}
-                </span>
-                <span className="font-display text-gold-200">{a.name}</span>
-                {a.element && (
-                  <span className="text-xs text-ink-400">
-                    ({ELEMENT_LABELS[a.element]})
+          {tabAbilities.map((a) => {
+            const mpCost = a.cost.mp;
+            const canAffordMp = currentMp >= mpCost;
+            return (
+              <button
+                key={a.id}
+                data-testid={`ability-card-${a.id}`}
+                onClick={canAffordMp ? () => onSelect(a.id) : undefined}
+                disabled={!canAffordMp}
+                className={`w-full text-left p-3 rounded-lg
+                           border transition-colors
+                           ${canAffordMp
+                             ? 'bg-ink-800/60 hover:bg-ink-800 border-ink-700/40 hover:border-gold-400/40 cursor-pointer'
+                             : 'bg-ink-900/40 border-ink-800/40 opacity-50 cursor-not-allowed'}`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">
+                    {a.element ? ELEMENT_ICONS[a.element] : '⚔️'}
                   </span>
-                )}
-                <span className="ml-auto text-xs font-mono text-amber-400/80">
-                  {a.cost.ap}AP{a.cost.mp > 0 ? ` / ${a.cost.mp}MP` : ''}
-                </span>
-              </div>
-              <div className="text-xs text-ink-300">{a.description.shortEffect}</div>
-            </button>
-          ))}
+                  <span className={`font-display ${canAffordMp ? 'text-gold-200' : 'text-ink-500'}`}>{a.name}</span>
+                  {a.element && (
+                    <span className="text-xs text-ink-400">
+                      ({ELEMENT_LABELS[a.element]})
+                    </span>
+                  )}
+                  <span className={`ml-auto text-xs font-mono ${canAffordMp ? 'text-amber-400/80' : 'text-rose-400/80'}`}>
+                    {a.cost.ap}AP{mpCost > 0 ? ` / ${mpCost}MP` : ''}
+                    {!canAffordMp && mpCost > 0 && ' (MP不足)'}
+                  </span>
+                </div>
+                <div className={`text-xs ${canAffordMp ? 'text-ink-300' : 'text-ink-500'}`}>{a.description.shortEffect}</div>
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>,

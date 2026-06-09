@@ -96,13 +96,17 @@ export interface BuffInstance {
 }
 
 // ============================================================
-// §5.3 CombatAction — 5 种动作判别联合
+// §5.3 CombatAction — 6 种动作判别联合
 // ============================================================
 //
-// v0.5-dev 变更:
-// - 移除 `skill` 动作: 当前没有配套的魔法/技能系统 (SkillRegistry),
-//   先在战斗动作集里隐藏, 后续 SkillRegistry 落地后再加回.
-// - 攻击 2 AP / 防御 1 AP / 物品 0 AP / 逃跑 0 AP / 休息 0 AP.
+// 历史变更:
+// - v0.5-dev: 移除 `skill` 动作 (SkillRegistry 尚未配套, 暂时隐藏).
+//   5 种动作: attack / item / defend / wait / flee.
+//   AP: 攻击 2 / 防御 1 / 物品 0 / 逃跑 0 / 休息 0.
+// - v0.6.2: 新增 `ability` 动作 (魔法/祷告/战技, 3 学派 16 能力);
+//   6 种动作: attack / item / defend / wait / flee / ability.
+//   ability 同时消耗 AP (2) 和 MP (ability.mpCost), MP 不足抛 InsufficientMPError.
+//   targetId 必填 (self/ally 仍要传), target 类型路由在 CombatView.onAbilitySelect 处理.
 
 export type CombatActionKind = 'attack' | 'item' | 'flee' | 'defend' | 'wait' | 'ability';
 

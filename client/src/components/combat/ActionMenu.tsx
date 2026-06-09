@@ -1,18 +1,21 @@
 /**
- * v0.5-dev 战斗系统 — ActionMenu
+ * v0.6.x 战斗系统 — ActionMenu
  *
- * 玩家在 ACT 队列轮到时操作 5 类动作:
+ * 玩家在 ACT 队列轮到时操作 6 类动作:
  * - 攻击 (2 AP)
  * - 物品 (0 AP, 走 BackpackModal)
  * - 防御 (1 AP, +命中门槛)
  * - 休息 (0 AP, 恢复 1 AP)
  * - 逃跑 (0 AP, 走 FleeAction)
+ * - 技能 (2 AP, 走 SkillPickerPopover 选 16 个 ability 之一)
  *
  * 设计:
- * - 5 张符文卡横排, hover 时顶部金色滑线 + 1px 上浮
+ * - 6 张符文卡横排, hover 时顶部金色滑线 + 1px 上浮
  * - 缺 AP 时 disabled (灰化 + 0.5 opacity)
  * - 触发 onAction 时上层 CombatView 切到 target 选模式
- *   (item 模式: 直接调 openModal('backpack'))
+ *   (item 模式: 直接调 openModal('backpack');
+ *    ability 模式: 打开 SkillPickerPopover, 选完按 target 类型分流:
+ *    self/all_enemies/all_allies 直接执行, enemy/ally 进 target 选模式)
  * - 只有当 currentActor 是玩家时才启用
  *
  * 美学: 奥术符文卡 — 深色磨砂玻璃 + 边缘金线 + 居中符文字符

@@ -9,12 +9,63 @@ import { useCombatStore, INITIAL_COMBAT_STATE } from '../../stores/combatStore';
 import { useGameStore } from '../../stores/gameStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { registerCombatTools } from './combatTools';
-import type { Combatant } from './types';
+import type { Combatant, BalanceRating } from './types';
+import type { Character } from '../../types/character';
+import { ZERO_RESISTANCES } from '../../types/character';
 import type { DebugBattle } from '../../data/debugPresets';
 import { createDebugPlayer as createDebugPlayerFactory } from '../../data/debugPresets';
 
 export function createDebugPlayer(): Combatant {
   return createDebugPlayerFactory();
+}
+
+/**
+ * 合成"调试法师"角色 — 仅在 characterStore 空时注入, 让 SkillPickerPopover 有 learnedAbilities 可读.
+ * 不写入 characterStore 的 savedChars (避免污染"我的角色"列表).
+ */
+function makeDebugMageCharacter(preset: DebugBattle): Character {
+  const learned = preset.playerOptions?.learnedAbilities ?? [];
+  const maxMp = preset.playerOptions?.maxMp ?? 20;
+  return {
+    characterId: `debug_mage_${preset.id}_${Date.now()}`,
+    playerId: 'debug_mage',
+    name: '测试法师',
+    race: '人类',
+    background: '调试预设: 法师火球测试',
+    appearance: '深色法袍, 手持木杖',
+    attributes: { STR: 10, DEX: 14, CON: 12, INT: 16, WIS: 15, CHA: 13 },
+    skills: [],
+    inventory: {
+      equipped: { weapon: null, armor: null, accessory: null },
+      backpack: [],
+      currency: { gold: 0, silver: 0, copper: 0 },
+    },
+    hp: 30, maxHp: 30,
+    mp: maxMp, maxMp,
+    vital: { hunger: 0, thirst: 0, fatigue: 0, hygiene: 0, morale: 0, wound: 0, temperature: 0, encumbrance: 0 },
+    reputation: { goodness: 0, violence: 0, lawfulness: 0, regional: {} },
+    conditions: [],
+    joinedRegion: 'debug',
+    joinedWorldDay: 1,
+    currentLocalDay: 1,
+    lastActionTime: new Date().toISOString(),
+    currentRegion: 'debug',
+    currentSubRegion: 'debug_arena',
+    currentLocation: '调试竞技场',
+    currentCoordinates: { x: 0, y: 0, z: 0 },
+    gameClock: 12,
+    timeOfDay: '正午',
+    recentHistory: [],
+    level: 5,
+    exp: 0,
+    expToNext: 100,
+    unspentAttributePoints: 0,
+    classId: 'mage',
+    classSkills: [],
+    elementalResistances: { ...ZERO_RESISTANCES },
+    learnedAbilities: [...learned],
+    defaultLearnedAbilities: learned.map((la) => la.abilityId),
+  };
 }
 
 export async function startDebugBattle(preset: DebugBattle): Promise<void> {
@@ -28,6 +79,7 @@ export async function startDebugBattle(preset: DebugBattle): Promise<void> {
 
   // 1b. v0.6.2 — 若 preset 声明了 playerOptions (含 learnedAbilities), 同步写入 characterStore
   //     这样 ActionMenu 的"能力"按钮才能找到对应的 ability 列表
+  //     优先用真实角色 (有则 merge, 不污染 gold/conditions/hp), 无则注入合成"调试法师"
   if (preset.playerOptions?.learnedAbilities && preset.playerOptions.learnedAbilities.length > 0) {
     const currentChar = useCharacterStore.getState().character;
     if (currentChar) {
@@ -38,10 +90,15 @@ export async function startDebugBattle(preset: DebugBattle): Promise<void> {
         maxMp: preset.playerOptions.maxMp ?? currentChar.maxMp,
         mp: preset.playerOptions.maxMp ?? currentChar.mp,
       });
+    } else {
+      // 用户在 title 页面直接进 debug, characterStore 空, 注入合成角色供 SkillPicker 读
+      useCharacterStore.getState().setCharacter(makeDebugMageCharacter(preset));
     }
   }
 
   // 2. 直接 dispatch startCombat, 跳过 LLM
+  // debug_ability 是能力测试 marker, 评估时映射为 'normal' (避免 BalanceRating 类型不收 'ability')
+  const dispatchDifficulty: BalanceRating = preset.difficulty === 'ability' ? 'normal' : preset.difficulty;
   const results = await toolCallRegistry.dispatch([{
     name: 'startCombat',
     arguments: {
@@ -49,7 +106,7 @@ export async function startDebugBattle(preset: DebugBattle): Promise<void> {
       player: createDebugPlayerFactory(preset.playerOptions),
       party: [],
       enemies: [...preset.enemies],
-      recommendedDifficulty: preset.difficulty,
+      recommendedDifficulty: dispatchDifficulty,
       narrativeOpening: `[调试] ${preset.title} — ${preset.description}`,
     },
   }]);

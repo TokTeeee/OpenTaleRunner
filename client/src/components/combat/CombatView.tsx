@@ -27,6 +27,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCombatStore } from '../../stores/combatStore';
 import { useCharacterStore } from '../../stores/characterStore';
 import { useGameStore } from '../../stores/gameStore';
+import { useUIStore } from '../../stores/uiStore';
 import { useQTEStore } from '../../stores/qteStore';
 import { CombatField } from './CombatField';
 import { ActionMenu, type ActionKind } from './ActionMenu';
@@ -87,6 +88,10 @@ export function CombatView() {
   const balanceRating = useCombatStore((s) => s.balanceRating);
   const balanceReport = useCombatStore((s) => s.balanceReport);
   const reset = useCombatStore((s) => s.reset);
+  const combatantsForReset = useCombatStore((s) => s.combatants);
+  const updateHP = useCharacterStore((s) => s.updateHP);
+  const updateMP = useCharacterStore((s) => s.updateMP);
+  const showToast = useUIStore((s) => s.showToast);
   const advanceTurn = useCombatStore((s) => s.advanceTurn);
   const advanceRound = useCombatStore((s) => s.advanceRound);
   const beginResolving = useCombatStore((s) => s.beginResolving);
@@ -286,14 +291,40 @@ export function CombatView() {
   const onTargetSelect = useCallback(
     (targetId: string) => {
       if (!selectedAction) return;
-      // 立即复位 UI 选状态 (executeAction 是 async, 不能等它)
+
       const actionKind = selectedAction;
       const abilityId = selectedAbilityId;
+      const target = combatants[targetId];
+
+      // 验证目标有效性: attack 只能选敌人, ability 按 target 类型路由
+      if (actionKind === 'attack') {
+        if (!target || target.side !== 'enemy' || target.isDead) {
+          const name = target?.name ?? targetId;
+          logger.warn('CombatView', `攻击目标无效: ${name}, 请重新选择`);
+          showToast(`目标无效: ${name} 不可攻击`, 'warn');
+          return; // 拒绝, 保持 target 选模式
+        }
+      } else if (actionKind === 'ability' && abilityId) {
+        const ability = getAbility(abilityId);
+        if (ability) {
+          const expectedSide = ability.target === 'ally' || ability.target === 'self' ? 'player' : 'enemy';
+          if (!target || target.side !== expectedSide || target.isDead) {
+            if (ability.target !== 'all_enemies' && ability.target !== 'all_allies') {
+              const name = target?.name ?? targetId;
+              logger.warn('CombatView', `能力目标无效: ${name} (需要 ${expectedSide} 侧存活目标), 请重新选择`);
+              showToast(`目标无效: ${name} 不可作为${ability.school === 'prayer' ? '治疗' : '攻击'}目标`, 'warn');
+              return; // 拒绝, 保持 target 选模式
+            }
+          }
+        }
+      }
+
+      // 验证通过, 复位 UI 选状态
       setSelectedAction(null);
       setSelectedTargetId(null);
       setSelectedAbilityId(null);
 
-      // 拼装 CombatAction (item 现在不走到这里, ActionMenu 已拦截, 但保留防御)
+      // 拼装 CombatAction
       let action: CombatAction;
       if (actionKind === 'attack') {
         action = { kind: 'attack', attackerId: playerId, targetId };
@@ -304,14 +335,13 @@ export function CombatView() {
         return;
       }
 
-      const target = combatants[targetId];
       logger.info(
         'CombatView',
         `执行 ${actionKind}${abilityId ? `(${abilityId})` : ''} -> ${target?.name ?? targetId}`,
       );
       void executeAction(action);
     },
-    [selectedAction, selectedAbilityId, playerId, combatants, executeAction],
+    [selectedAction, selectedAbilityId, playerId, combatants, executeAction, showToast],
   );
 
   const onCancelTarget = useCallback(() => {
@@ -337,6 +367,14 @@ export function CombatView() {
         balanceRating={balanceRating}
         powerRatio={balanceReport?.powerRatio}
         onDismiss={() => {
+          // 战斗结算: 同步玩家 HP/MP 到角色栏
+          const playerCombatant = Object.values(combatantsForReset).find((c) => c.side === 'player');
+          if (playerCombatant && character) {
+            updateHP(playerCombatant.hp);
+            if (playerCombatant.mp != null && character.maxMp > 0) {
+              updateMP(playerCombatant.mp);
+            }
+          }
           reset();
           // 写一条玩家确认的 message (让 narrative 区看到战斗结束)
           addMessage({
@@ -415,7 +453,7 @@ export function CombatView() {
 
       {/* v0.6.2 — skill picker 弹层 (玩家点 "技能" 按钮后) */}
       {skillPickerOpen && (
-        <SkillPickerPopover onSelect={onAbilitySelect} onClose={onSkillPickerClose} />
+        <SkillPickerPopover onSelect={onAbilitySelect} onClose={onSkillPickerClose} playerId={playerId} />
       )}
     </motion.div>
   );

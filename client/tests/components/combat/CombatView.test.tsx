@@ -1,5 +1,5 @@
 /**
- * v0.5-dev 战斗系统 — CombatView 测试
+ * v0.6.2 战斗系统 — CombatView 测试
  *
  * 覆盖 5 phase:
  * - idle          -> 渲染 null
@@ -8,9 +8,10 @@
  * - resolving     -> 结算中
  * - settled       -> SettlementModal
  *
- * + ActionMenu 5 按钮 disabled/enabled 状态 (attack / item / defend / wait / flee)
- *   (v0.5-dev: 移除 skill 按钮, 等待 SkillRegistry 配套)
- * + 选目标交互
+ * + ActionMenu 6 按钮 disabled/enabled 状态 (attack / item / defend / wait / flee / ability)
+ *   v0.6.2: 加 ability 按钮 + SkillPickerPopover 弹层
+ * + 选目标交互 (attack / ability)
+ * + v0.6.2 ability flow: 点 ability -> 选 ability -> 选目标 -> 释放
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -35,6 +36,8 @@ function makeCombatant(overrides: Partial<Combatant> & { id: string; side: 'play
     isDead: false,
     isFleeing: false,
     equipped: { weapon: null, armor: null, accessory: null },
+    // v0.6.2 — 8 元素抗性, 默认 0 (applyResistance 需此字段存在)
+    elementalResistances: { fire: 0, ice: 0, lightning: 0, wind: 0, earth: 0, arcane: 0, holy: 0, shadow: 0 },
     ...overrides,
   };
 }
@@ -172,18 +175,19 @@ describe('CombatView: FSM 路由 (5 phase)', () => {
 });
 
 describe('CombatView: ActionMenu AP 状态', () => {
-  it('玩家 AP=6: 5 按钮全可点 (attack 2AP / item 0AP / defend 1AP / wait 0AP / flee 0AP)', () => {
+  it('玩家 AP=6: 6 按钮全可点 (attack 2AP / item 0AP / defend 1AP / wait 0AP / flee 0AP / ability 2AP)', () => {
     seedCombat('active');
     render(<CombatView />);
-    // 玩家 AP=6 全部按钮 enabled (attack 2 / item 0 / defend 1 / wait 0 / flee 0)
+    // 玩家 AP=6 全部按钮 enabled (attack 2 / item 0 / defend 1 / wait 0 / flee 0 / ability 2)
     expect(screen.getByTestId('action-attack')).not.toBeDisabled();
     expect(screen.getByTestId('action-item')).not.toBeDisabled();
     expect(screen.getByTestId('action-defend')).not.toBeDisabled();
     expect(screen.getByTestId('action-wait')).not.toBeDisabled();
     expect(screen.getByTestId('action-flee')).not.toBeDisabled();
+    expect(screen.getByTestId('action-ability')).not.toBeDisabled();
   });
 
-  it('玩家 AP=1: attack(2) disabled, item/defend/wait/flee 可点', () => {
+  it('玩家 AP=1: attack(2)/ability(2) disabled, item/defend/wait/flee 可点', () => {
     seedCombat('active');
     useCombatStore.setState((s) => ({
       combatants: {
@@ -193,13 +197,14 @@ describe('CombatView: ActionMenu AP 状态', () => {
     }));
     render(<CombatView />);
     expect(screen.getByTestId('action-attack')).toBeDisabled();
+    expect(screen.getByTestId('action-ability')).toBeDisabled();
     expect(screen.getByTestId('action-item')).not.toBeDisabled();
     expect(screen.getByTestId('action-defend')).not.toBeDisabled();
     expect(screen.getByTestId('action-wait')).not.toBeDisabled();
     expect(screen.getByTestId('action-flee')).not.toBeDisabled();
   });
 
-  it('玩家 AP=2: attack(2) 可用, item/defend/wait/flee 可点', () => {
+  it('玩家 AP=2: attack(2)/ability(2) 可用, item/defend/wait/flee 可点', () => {
     seedCombat('active');
     useCombatStore.setState((s) => ({
       combatants: {
@@ -209,6 +214,7 @@ describe('CombatView: ActionMenu AP 状态', () => {
     }));
     render(<CombatView />);
     expect(screen.getByTestId('action-attack')).not.toBeDisabled();
+    expect(screen.getByTestId('action-ability')).not.toBeDisabled();
     expect(screen.getByTestId('action-item')).not.toBeDisabled();
     expect(screen.getByTestId('action-defend')).not.toBeDisabled();
     expect(screen.getByTestId('action-wait')).not.toBeDisabled();
@@ -225,7 +231,11 @@ describe('CombatView: ActionMenu AP 状态', () => {
     }));
     render(<CombatView />);
     expect(screen.getByTestId('action-attack')).toBeDisabled();
+    expect(screen.getByTestId('action-item')).toBeDisabled();
+    expect(screen.getByTestId('action-defend')).toBeDisabled();
+    expect(screen.getByTestId('action-wait')).toBeDisabled();
     expect(screen.getByTestId('action-flee')).toBeDisabled();
+    expect(screen.getByTestId('action-ability')).toBeDisabled();
   });
 });
 

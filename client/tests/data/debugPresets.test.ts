@@ -61,24 +61,32 @@ describe('debugPresets', () => {
   // v0.6.2 — mage 变体
   // -----------------------------------------------------------------
 
-  it('v0.6.2: debug_ability 预设存在, playerOptions.learnedAbilities 含 fireBolt', () => {
+  it('v0.6.2: debug_ability 预设存在, playerOptions.learnedAbilities 含 4 个能力 (3 学派)', () => {
     const ab = DEBUG_BATTLES.find((b) => b.id === 'debug_ability');
     expect(ab).toBeDefined();
     expect(ab?.difficulty).toBe('ability');
     expect(ab?.playerOptions?.learnedAbilities).toEqual([
       { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+      { abilityId: 'prayer_holy_heal', school: 'prayer', learnedAt: 1 },
+      { abilityId: 'art_warrior_smash', school: 'battle_art', learnedAt: 1 },
+      { abilityId: 'art_mage_arcane_ward', school: 'battle_art', learnedAt: 1 },
     ]);
-    expect(ab?.playerOptions?.maxMp).toBe(20);
+    expect(ab?.playerOptions?.maxMp).toBe(30);
   });
 
   it('v0.6.2: createDebugPlayer(options) 注入 maxMp, 玩家 name 变"测试法师"', () => {
     const mage = createDebugPlayer({
-      maxMp: 20,
-      learnedAbilities: [{ abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 }],
+      maxMp: 30,
+      learnedAbilities: [
+        { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+        { abilityId: 'prayer_holy_heal', school: 'prayer', learnedAt: 1 },
+        { abilityId: 'art_warrior_smash', school: 'battle_art', learnedAt: 1 },
+        { abilityId: 'art_mage_arcane_ward', school: 'battle_art', learnedAt: 1 },
+      ],
     });
     expect(mage.name).toBe('测试法师');
-    expect(mage.mp).toBe(20);
-    expect(mage.maxMp).toBe(20);
+    expect(mage.mp).toBe(30);
+    expect(mage.maxMp).toBe(30);
     // 法师属性: INT 16
     expect(mage.attributes.INT).toBe(16);
   });

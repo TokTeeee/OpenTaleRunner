@@ -37,6 +37,13 @@ function hpBarColor(pct: number): string {
   return 'from-rose-600 to-rose-500';
 }
 
+/** MP 颜色档位 (基于百分比) */
+function mpBarColor(pct: number): string {
+  if (pct > 0.5) return 'from-blue-500 to-blue-400';
+  if (pct > 0.2) return 'from-indigo-500 to-indigo-400';
+  return 'from-violet-600 to-violet-500';
+}
+
 /** 侧边色调 — 敌 = 玫瑰金, 我方 = 翠金 */
 const SIDE_ACCENT: Record<'player' | 'ally' | 'enemy', { ring: string; glow: string; tint: string }> = {
   player: {
@@ -83,6 +90,7 @@ export function CombatantCard({
   compact = false,
 }: CombatantCardProps) {
   const hpPct = Math.max(0, Math.min(1, combatant.hp / combatant.maxHp));
+  const mpPct = combatant.maxMp ? Math.max(0, Math.min(1, (combatant.mp ?? 0) / combatant.maxMp)) : 0;
   const accent = SIDE_ACCENT[side];
   const initial = combatant.name[0] ?? '?';
 
@@ -196,6 +204,26 @@ export function CombatantCard({
           />
         </div>
       </div>
+
+      {/* MP 条 (仅 maxMp > 0 时显示) */}
+      {combatant.maxMp != null && combatant.maxMp > 0 && (
+        <div className="relative mt-1">
+          <div className="flex justify-between items-baseline text-[10px] mb-0.5">
+            <span className="text-blue-300/80 font-display tracking-widest">MP</span>
+            <span className="text-ink-300 font-mono">
+              {combatant.mp ?? 0}<span className="text-ink-500">/{combatant.maxMp}</span>
+            </span>
+          </div>
+          <div className="h-1.5 rounded-full bg-ink-950/80 overflow-hidden border border-ink-700/60">
+            <motion.div
+              className={`h-full rounded-full bg-gradient-to-r ${mpBarColor(mpPct)}`}
+              initial={{ width: 0 }}
+              animate={{ width: `${mpPct * 100}%` }}
+              transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* 退出战斗标记 */}
       <div className="flex items-center justify-between mt-1.5">

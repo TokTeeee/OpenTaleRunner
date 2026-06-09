@@ -44,6 +44,7 @@ interface CharacterState {
   addSkill: (skill: Skill) => void;
   modifySkill: (skillId: string, changes: { newName?: string; newDescription?: string; levelChange?: number }) => void;
   updateHP: (hp: number) => void;
+  updateMP: (mp: number) => void;
   updateVital: (delta: Partial<VitalStats>) => void;
   updateReputation: (delta: Partial<Reputation & { regional: Record<string, number> }>) => void;
   addCondition: (condition: string) => void;
@@ -105,6 +106,9 @@ export const useCharacterStore = create<CharacterState>((set) => ({
 
   updateHP: (hp) =>
     set((s) => { if (!s.character) return s; return { character: { ...s.character, hp: Math.max(0, Math.min(s.character.maxHp, hp)) } }; }),
+
+  updateMP: (mp) =>
+    set((s) => { if (!s.character) return s; return { character: { ...s.character, mp: Math.max(0, Math.min(s.character.maxMp, mp)) } }; }),
 
   updateVital: (delta) =>
     set((s) => {

@@ -1,27 +1,38 @@
 /**
- * v0.4 战斗系统 — ActionResolver 5 维公式核心
+ * v0.6.x 战斗系统 — ActionResolver 5 维公式 + ability 解析核心
  *
- * v0.5-dev 变更:
- * - 移除 `skill` 动作 (无 SkillRegistry, 先隐藏)
- * - 命中公式改为文档版: d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty
- * - 伤害公式改为文档版: max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放
- * - 闪避衰减: defender 每次成功闪避, 自己的命中门槛 +DODGE_PENALTY_STEP;
- *   被命中则重置. 取代原 2d6 dodge 投模型.
+ * 历史变更:
+ * - v0.5-dev: 移除 `skill` 动作 (无 SkillRegistry, 先隐藏); 命中/伤害公式采用文档版
+ *   (d20 + DEX_mod vs 10 + DEX_mod + defense + dodgePenalty;
+ *    max(1, d6 + STR_mod + weapon - target.defense) * QTE 缩放);
+ *   闪避衰减: defender 每次成功闪避 +DODGE_PENALTY_STEP, 被命中则重置.
+ * - v0.6.2: 新增 `ability` 动作 (魔法/祷告/战技, 3 学派 16 能力);
+ *   伤害公式补 8 元素抗性 (fire/ice/lightning/wind/earth/arcane/holy/shadow):
+ *   `final = base * (1 - resistance/200)`, clamp 到 [0, base];
+ *   MP 消耗走 ability.mpCost, MP 不足抛 InsufficientMPError;
+ *   resolveAbility 走 AbilityResolver 拿 damage/heal/effect 副作用,
+ *   再走 applyResistance + applyDamage 链路, 事件 ABILITY_USED.
+ *   闪避衰减修正: dodgePenalty 从门槛中扣除 (连续闪避使门槛降低, 后续更易被命中),
+ *   门槛下限 5 (保底命中).
  *
- * 实现 5 种 CombatAction 的本地判定:
+ * 实现 6 种 CombatAction 的本地判定:
  * - attack:  d20 + DEX_mod vs threshold; 命中后 d6 + STR_mod + weapon - defense
  * - item:    委托给 ItemCallbackRouter
  * - flee:    fleeChance = clamp(0.3 + (DEX_self - DEX_others) / 20, 0.1, 0.9)
  * - defend:  本回合 defending=true → 命中门槛 +2; 消耗 1 AP
  * - wait:    跳过本回合, 恢复 1 AP (受 maxAp clamp)
+ * - ability: 解析 ability → applyResistance → applyDamage/applyHeal/applyEffect
+ *            → 扣 MP → emit ABILITY_USED
  *
- * 公式 (v0.5 §2.2 / §2.6):
+ * 公式 (v0.6.x 沿用 v0.5 文档版):
  *   effectiveAttribute(c, attr) = c.attributes[attr] + sum(buff.modifiers[attr]) + equipmentBonus
  *   toHit      = d20 + floor((DEX_attacker - 10) / 2)
- *   threshold  = 10 + floor((DEX_defender - 10) / 2) + defense + dodgePenalty + (defending ? 2 : 0)
+ *   threshold  = max(5, 10 + floor((DEX_defender - 10) / 2) + defense - dodgePenalty + (defending ? 2 : 0))
  *   hit        = toHit >= threshold (平局算命中)
  *   damage     = round( max(1, d6 + floor((STR_attacker - 10) / 2) + weapon - defense) * (1 + qte * scale) )
  *   fleeChance = clamp(0.3 + (playerDEX - avgEnemyDEX) / 20, 0.1, 0.9)
+ *   abilityDmg = round( abilityBase * (1 - target.elementalResistances[element] / 200) )
+ *   abilityCost = ability.apCost (AP) + ability.mpCost (MP)
  *
  * 设计: RollFn 注入, QTE provider 注入, 状态变更通过 store
  *
@@ -51,6 +62,7 @@ import { EVENTS } from '../event/events';
 import type { Ability } from '../../types/ability';
 import { getAbility } from '../../data/abilities';
 import { applySpecial, applyResistance, parseDiceFormula } from '../abilities/abilityUtils';
+import { ELEMENT_LABELS } from '../../types/ability';
 
 // ============================================================
 // 错误
@@ -166,7 +178,9 @@ export function rollToHit(attacker: Combatant, roll: RollFn): { d20: number; dex
   return { d20, dexMod, total: d20 + dexMod };
 }
 
-/** 命中门槛: 10 + DEX_mod + 装备 defense + 闪避衰减 + (defending ? 2 : 0). */
+/** 命中门槛: 10 + DEX_mod + 装备 defense - 闪避衰减 + (defending ? 2 : 0).
+ *  闪避衰减 (dodgePenalty) 从门槛中扣除: 连续闪避成功后门槛降低, 后续更易被命中.
+ */
 export function hitThreshold(
   defender: Combatant,
   dodgePenalty = 0,
@@ -181,7 +195,7 @@ export function hitThreshold(
     defense,
     dodgePenalty,
     defendingBonus,
-    total: 10 + dexMod + defense + dodgePenalty + defendingBonus,
+    total: Math.max(5, 10 + dexMod + defense - dodgePenalty + defendingBonus),
   };
 }
 
@@ -190,7 +204,7 @@ export function checkHit(attackRoll: number, threshold: number): boolean {
   return attackRoll >= threshold;
 }
 
-/** 闪避衰减常量: 每次成功闪避后, 该 defender 后续的命中门槛 +DODGE_PENALTY_STEP. */
+/** 闪避衰减常量: 每次成功闪避后, 该 defender 后续的命中门槛 -DODGE_PENALTY_STEP (使连续闪避更难). */
 export const DODGE_PENALTY_STEP = 5;
 
 /**
@@ -426,10 +440,16 @@ export class ActionResolver {
     // 治疗 (无需命中)
     if (ability.effect.isHeal && target && typeof target === 'object') {
       const healAmount = this.computeAbilityMagnitude(attacker, ability, ctx.roll, state.round);
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `  治疗计算: ${healAmount}`,
+        timestamp: ts,
+      });
+      const targetHpBefore = target.hp;
       useCombatStore.getState().applyHeal(target.id, healAmount);
       log.push({
         kind: 'action', round: state.round, turn: state.turn,
-        message: `${target.name} 受到 ${ability.name} 治疗 +${healAmount} HP`,
+        message: `  ${target.name} 恢复 ${healAmount} HP (${targetHpBefore}→${Math.min(target.maxHp, targetHpBefore + healAmount)})`,
         data: { heal: healAmount }, timestamp: ts,
       });
       emit({ success: true, heal: healAmount, targetId: target.id });
@@ -523,7 +543,7 @@ export class ActionResolver {
     log: CombatLogEntry[],
     ts: number,
   ): { hit: boolean; damage: number } {
-    // 命中投: d20 + DEX_mod vs threshold
+    // 步骤1: 命中判定
     const toHit = rollToHit(attacker, ctx.roll);
     const dodgePenalty = this.dodgePenalty.get(target.id) ?? 0;
     const defending = ctx.getDefending(target.id);
@@ -531,50 +551,89 @@ export class ActionResolver {
     const hit = checkHit(toHit.total, threshold.total);
     log.push({
       kind: 'action', round: state.round, turn: state.turn,
-      message: `${ability.name}: d20=${toHit.d20}+${toHit.dexMod} = ${toHit.total} vs 门槛 ${threshold.total}`,
+      message: `${ability.name}: 命中判定 d20=${toHit.d20}+${toHit.dexMod}=${toHit.total} vs 门槛${threshold.total}`,
       data: { toHit, threshold, abilityId: ability.id },
       timestamp: ts,
     });
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `  门槛构成: 10+DEX${threshold.dexMod >= 0 ? '+' : ''}${threshold.dexMod}+防${threshold.defense}${threshold.dodgePenalty > 0 ? `-衰减${threshold.dodgePenalty}` : ''}${threshold.defendingBonus ? `+防御${threshold.defendingBonus}` : ''}=${threshold.total}`,
+      timestamp: ts,
+    });
     if (!hit) {
-      this.dodgePenalty.set(target.id, dodgePenalty + DODGE_PENALTY_STEP);
+      const newPenalty = dodgePenalty + DODGE_PENALTY_STEP;
+      this.dodgePenalty.set(target.id, newPenalty);
       log.push({
         kind: 'action', round: state.round, turn: state.turn,
-        message: `${target.name} 闪避了 ${ability.name}!`,
+        message: `${target.name} 闪避了 ${ability.name}! (闪避衰减 ${dodgePenalty}→${newPenalty}, 后续门槛降低)`,
         timestamp: ts,
       });
       return { hit: false, damage: 0 };
     }
-    if (dodgePenalty > 0) this.dodgePenalty.set(target.id, 0);
+    if (dodgePenalty > 0) {
+      this.dodgePenalty.set(target.id, 0);
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `${target.name} 被命中, 闪避衰减 ${dodgePenalty} 归零`,
+        timestamp: ts,
+      });
+    }
 
-    // QTE 缩放 (magic modifier)
+    // 步骤2: 基础伤害计算
     const qteRes = ctx.qte({ action: { kind: 'ability', userId: attacker.id, abilityId: ability.id, targetId: target.id }, attacker, target, state });
-
-    // 计算基础伤害
     const baseAmount = this.computeAbilityMagnitude(attacker, ability, ctx.roll, state.round);
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `  基础伤害: ${baseAmount}`,
+      timestamp: ts,
+    });
 
-    // 战技 armor_pierce: 防御减半 (应用 50% 穿透)
+    // 步骤3: 穿甲计算
     const targetDefense = getArmorDefense(target.equipped.armor);
     const effectiveDefense = ability.effect.special === 'armor_pierce' ? Math.floor(targetDefense / 2) : targetDefense;
     const preResistance = Math.max(1, baseAmount - effectiveDefense);
+    if (effectiveDefense > 0) {
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `  穿甲: ${baseAmount}-防${effectiveDefense}${ability.effect.special === 'armor_pierce' ? '(半减)' : ''}=${preResistance}`,
+        timestamp: ts,
+      });
+    }
 
-    // 抗性
+    // 步骤4: 元素抗性计算
     const element = ability.effect.element;
+    const resistanceValue = element ? (target.elementalResistances[element] ?? 0) : 0;
     const postResistance = applyResistance(preResistance, element, target.elementalResistances);
+    if (resistanceValue !== 0 && element) {
+      const reduction = preResistance - postResistance;
+      log.push({
+        kind: 'action', round: state.round, turn: state.turn,
+        message: `  抗性: ${preResistance}×(1-${resistanceValue}/200) ${resistanceValue > 0 ? `-${reduction}` : `+${Math.abs(reduction)}`}${resistanceValue > 0 ? '(抗性减免)' : '(弱点增伤)'}=${postResistance}`,
+        timestamp: ts,
+      });
+    }
 
-    // 战技 special (high_crit 改 damage, life_steal 治疗自己, self_dodge_penalty 加 buff)
+    // 步骤5: 战技特效 + QTE
     const specialResult = applySpecial(ability.effect.special, postResistance, attacker, target, state.turn);
     const finalDamage = Math.max(0, Math.round(specialResult.damage * (1 + qteRes.modifier * this.damageScale)));
+    log.push({
+      kind: 'action', round: state.round, turn: state.turn,
+      message: `  最终伤害: ${postResistance}${qteRes.modifier !== 0 ? ` ×QTE${(1 + qteRes.modifier * this.damageScale).toFixed(2)}` : ''}=${finalDamage}`,
+      data: { baseAmount, preResistance, postResistance, finalDamage, qte: qteRes },
+      timestamp: ts,
+    });
 
+    // 步骤6: 实际生效
+    const targetHpBefore = target.hp;
     useCombatStore.getState().applyDamage(target.id, finalDamage);
     log.push({
       kind: 'action', round: state.round, turn: state.turn,
-      message: `${ability.name} 命中! ${baseAmount} 基础 → ${preResistance} (穿甲后) → ${postResistance} (抗性后) → ${finalDamage} 伤害${qteRes.modifier !== 0 ? ` (QTE ×${(1 + qteRes.modifier * this.damageScale).toFixed(2)})` : ''}`,
-      data: { baseAmount, preResistance, postResistance, finalDamage, qte: qteRes },
+      message: `  ${target.name} 受到 ${finalDamage} ${element ? `${ELEMENT_LABELS[element]}` : ''}伤害 (HP ${targetHpBefore}→${targetHpBefore - finalDamage})`,
       timestamp: ts,
     });
     // 附加 special log
     for (const extra of specialResult.extra) {
-      log.push({ kind: 'action', round: state.round, turn: state.turn, message: extra, timestamp: ts });
+      log.push({ kind: 'action', round: state.round, turn: state.turn, message: `  ${extra}`, timestamp: ts });
     }
     // 广播
     eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: finalDamage, isCrit: qteRes.modifier > 0 });
@@ -626,24 +685,33 @@ export class ActionResolver {
     const threshold = hitThreshold(target, currentPenalty, targetDefending);
     const hit = checkHit(toHit.total, threshold.total);
 
+    // 步骤1: 命中判定
     log.push({
       kind: 'action',
       round: state.round,
       turn: state.turn,
-      message: `${attacker.name} 攻击 ${target.name}: d20=${toHit.d20}+${toHit.dexMod} = ${toHit.total} vs 门槛 ${threshold.total} (10+${threshold.dexMod}+def${threshold.defense}+门槛${threshold.dodgePenalty}${threshold.defendingBonus ? `+defend${threshold.defendingBonus}` : ''})`,
+      message: `${attacker.name} 攻击 ${target.name}: 命中判定 d20=${toHit.d20}+${toHit.dexMod}=${toHit.total} vs 门槛${threshold.total}`,
       data: { toHit, threshold, qte: qteRes },
+      timestamp: Date.now(),
+    });
+    // 门槛构成明细
+    log.push({
+      kind: 'action',
+      round: state.round,
+      turn: state.turn,
+      message: `  门槛构成: 10+DEX${threshold.dexMod >= 0 ? '+' : ''}${threshold.dexMod}+防${threshold.defense}${threshold.dodgePenalty > 0 ? `-衰减${threshold.dodgePenalty}` : ''}${threshold.defendingBonus ? `+防御${threshold.defendingBonus}` : ''}=${threshold.total}`,
       timestamp: Date.now(),
     });
 
     if (!hit) {
-      // 闪避成功 → defender 后续门槛 +DODGE_PENALTY_STEP
+      // 闪避成功 → defender 后续门槛 -DODGE_PENALTY_STEP (使连续闪避更难)
       const newPenalty = currentPenalty + DODGE_PENALTY_STEP;
       this.dodgePenalty.set(target.id, newPenalty);
       log.push({
         kind: 'action',
         round: state.round,
         turn: state.turn,
-        message: `${target.name} 闪避成功! (门槛 ${currentPenalty} → ${newPenalty})`,
+        message: `${target.name} 闪避成功! (闪避衰减 ${currentPenalty}→${newPenalty}, 后续门槛降低)`,
         data: { hit: false, dodgePenalty: newPenalty },
         timestamp: Date.now(),
       });
@@ -664,24 +732,33 @@ export class ActionResolver {
       });
     }
 
-    // 命中 → 算伤害 (含 QTE 缩放, 含 target.defense 减成)
+    // 步骤2: 伤害计算
     const damage = rollDamage(attacker, target, qteRes.modifier, this.damageScale, ctx.roll);
+    log.push({
+      kind: 'action',
+      round: state.round,
+      turn: state.turn,
+      message: `  伤害计算: d6=${damage.d6}+STR${damage.strMod >= 0 ? '+' : ''}${damage.strMod}+武器${damage.weapon}-防${damage.defense}=${damage.base}${qteRes.modifier !== 0 ? ` ×QTE${(1 + qteRes.modifier * this.damageScale).toFixed(2)}` : ''}=${damage.total}`,
+      data: { damage, qte: qteRes },
+      timestamp: Date.now(),
+    });
+
+    // 步骤3: 实际生效
     const targetHpBefore = target.hp;
     useCombatStore.getState().applyDamage(target.id, damage.total);
+    log.push({
+      kind: 'action',
+      round: state.round,
+      turn: state.turn,
+      message: `  ${target.name} 受到 ${damage.total} 伤害 (HP ${targetHpBefore}→${targetHpBefore - damage.total})`,
+      timestamp: Date.now(),
+    });
     // v0.5.1: 广播 combat.hit 给 EXP 授权 hook
     eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: damage.total, isCrit: qteRes.modifier > 0 });
     if (targetHpBefore - damage.total <= 0) {
       // v0.5.1: 击杀广播
       eventBus.emit(EVENTS.COMBAT_KILL, { killerId: attacker.id, targetId: target.id, targetName: target.name });
     }
-    log.push({
-      kind: 'action',
-      round: state.round,
-      turn: state.turn,
-      message: `命中! 投 d6=${damage.d6}+STR${damage.strMod}+武器${damage.weapon}-防${damage.defense} = base${damage.base} → ${damage.total} 伤害${qteRes.modifier !== 0 ? ` (QTE ×${(1 + qteRes.modifier * this.damageScale).toFixed(2)})` : ''}`,
-      data: { damage, qte: qteRes },
-      timestamp: Date.now(),
-    });
 
     useCombatStore.getState().applyAP(attacker.id, -ACTION_COSTS.attack.ap);
     return { log, buffTicks: [], ended: false };

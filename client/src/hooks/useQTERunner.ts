@@ -1,19 +1,24 @@
 /**
- * v0.5-dev 战斗系统 — useQTERunner
+ * v0.6.x 战斗系统 — useQTERunner
  *
  * 协调 QTE 弹层 + ActionResolver 的 hook.
  *
- * v0.5-dev 变更:
- * - 移除 skill 路径, 仅 attack 触发 QTE 弹层.
+ * 历史变更:
+ * - v0.5-dev: 移除 skill 走魔法 QTE 的路径 (skill 动作已隐藏), 仅 attack 触发 QTE 弹层.
+ * - v0.6.2: ability 动作不触发 QTE 弹层 (走确定性解析, 由 AbilityResolver 决定
+ *   damage/heal/effect 副作用); 走 ActionResolver.resolveAbility 路径, 命中/伤害
+ *   公式与 attack 一致, 但补 8 元素抗性. MP 不足抛 InsufficientMPError.
  *
- * 流程:
- * 1. CombatView 点 onAction(attack) + 选目标 -> executeAction(action)
- * 2. 检查 qte.enabled:
+ * 流程 (v0.6.x):
+ * 1. CombatView 点 onAction(attack|ability) + 选目标 -> executeAction(action)
+ * 2. 检查 qte.enabled (仅 attack 路径):
  *    - 关: 走 ActionResolver.resolve(), modifier=0
  *    - 开: 调 QTEStore.runAttack 展示 overlay, 玩家完成
  *      -> 拿 result -> 走 ActionResolver.resolveWithQTE()
- * 3. 调 applyResult() 把 log + hp/ap 同步到 store
- * 4. 检查战斗结束 -> 通知 LLM endCombat
+ * 3. ability 路径: 走 ActionResolver.resolveAbility(), 不开 QTE,
+ *    命中/伤害走 8 元素抗性公式, 扣 MP, emit ABILITY_USED
+ * 4. 调 applyResult() 把 log + hp/ap/mp 同步到 store
+ * 5. 检查战斗结束 -> 通知 LLM endCombat
  *
  * 设计: 单实例, CombatView mount 时初始化
  */

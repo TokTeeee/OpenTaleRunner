@@ -1,15 +1,19 @@
 /**
- * v0.5-dev 战斗系统 — useQTERunner hook 测试
+ * v0.6.x 战斗系统 — useQTERunner hook 测试
  *
- * v0.5-dev 变更:
- * - 移除 skill 走魔法 QTE 的用例 (skill 已隐藏)
- * - defend cost 改为 1 AP (与 DEFEND_AP_COST 同步)
+ * 历史变更:
+ * - v0.5-dev: 移除 skill 走魔法 QTE 的用例 (skill 已隐藏);
+ *   defend cost 改为 1 AP (与 DEFEND_AP_COST 同步)
+ * - v0.6.2: 新增 ability 路径测试 (不开 QTE, 走 resolveAbility,
+ *   命中/伤害走 8 元素抗性, 扣 MP, 抛 InsufficientMPError);
+ *   defend cost 保持 1 AP 不变
  *
  * 覆盖:
  * - QTE 关闭: attack 走 resolve() (modifier=0)
  * - QTE 开启: attack 走 runAttack + resolveWithQTE
  * - defend / flee / item / wait 不走 QTE
- * - AP 扣费 + turn 推进
+ * - ability (v0.6.2): 不走 QTE, 走 resolveAbility, 扣 MP, applyResistance
+ * - AP/MP 扣费 + turn 推进
  * - 战斗胜利 -> beginResolving(victory)
  * - 战斗失败 -> beginResolving(defeat)
  * - 战斗回合结束 -> advanceRound

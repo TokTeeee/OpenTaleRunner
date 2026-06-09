@@ -64,7 +64,7 @@ describe('resolveAbility', () => {
       kind: 'ability', userId: 'p1', abilityId: 'spell_fire_bolt', targetId: 'e1',
     } as any, useCombatStore.getState());
     const msgs = r.log.map(l => l.message);
-    const dmg = r.log.find(l => l.message.includes('命中!') && l.message.includes('伤害'));
+    const dmg = r.log.find(l => l.message.includes('最终伤害'));
     expect(dmg, JSON.stringify(msgs)).toBeDefined();
     expect(useCombatStore.getState().combatants.e1.hp).toBeLessThan(20);
   });
