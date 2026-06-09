@@ -25,7 +25,7 @@ export interface DebugPlayerOptions {
 }
 
 export interface DebugBattle {
-  readonly id: 'debug_trivial' | 'debug_normal' | 'debug_hard' | 'debug_deadly' | 'debug_ability';
+  readonly id: 'debug_trivial' | 'debug_normal' | 'debug_hard' | 'debug_deadly' | 'debug_ability' | 'debug_resist';
   readonly difficulty: DebugDifficulty;
   readonly title: string;
   readonly description: string;
@@ -33,6 +33,8 @@ export interface DebugBattle {
   readonly expectedOutcome: string;
   /** v0.6.2 — 战斗玩家配置 (默认 = 测试勇者) */
   readonly playerOptions?: DebugPlayerOptions;
+  /** v0.6.3 — 分类标签, 用于二级菜单分组 */
+  readonly category?: 'combat' | 'item';
 }
 
 // ============================================================
@@ -111,6 +113,26 @@ export function goblinScout(): Combatant {
   return baseEnemy(uniqueId('goblin_scout'), '哥布林斥候', 8, { STR: 6, DEX: 12, CON: 8, INT: 6, WIS: 8, CHA: 6 });
 }
 
+/** v0.6.3: 带火抗防具的哥布林斥候, 用于验证装备抗性在战斗中生效 */
+export function goblinScoutFireResist(): Combatant {
+  const g = baseEnemy(uniqueId('goblin_scout_fr'), '哥布林斥候(火抗)', 8, { STR: 6, DEX: 12, CON: 8, INT: 6, WIS: 8, CHA: 6 });
+  return {
+    ...g,
+    equipped: {
+      ...g.equipped,
+      armor: {
+        name: '抗火皮甲',
+        category: 'armor' as const,
+        quality: '精良' as const,
+        effects: [
+          { id: 'fr1', type: 'elemental_resist' as const, value: { fire: 40 }, description: '火抗 +40%' },
+        ],
+      } as Item,
+    },
+    elementalResistances: { ...ZERO_RESISTANCES, fire: 40 },
+  };
+}
+
 export function goblinWarrior(): Combatant {
   const w = baseEnemy(uniqueId('goblin_warrior'), '哥布林战士', 25, { STR: 14, DEX: 10, CON: 12, INT: 8, WIS: 8, CHA: 6 });
   return {
@@ -143,6 +165,7 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
   {
     id: 'debug_trivial',
     difficulty: 'trivial',
+    category: 'combat',
     title: '路边小怪',
     description: '单体弱敌, 测 6 维公式与攻击基础流程',
     enemies: [goblinScout()],
@@ -151,6 +174,7 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
   {
     id: 'debug_normal',
     difficulty: 'normal',
+    category: 'combat',
     title: '哥布林伏击',
     description: '3 只斥候, 测多敌 ACT 队列与群战逻辑',
     enemies: [goblinScout(), goblinScout(), goblinScout()],
@@ -159,6 +183,7 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
   {
     id: 'debug_hard',
     difficulty: 'hard',
+    category: 'combat',
     title: '哥布林精英队',
     description: '战士 + 斥候, 测防御动作与物品使用',
     enemies: [goblinWarrior(), goblinScout()],
@@ -167,6 +192,7 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
   {
     id: 'debug_deadly',
     difficulty: 'deadly',
+    category: 'combat',
     title: '巨魔首领',
     description: '高 HP 强攻 Boss, 测 deadly 档失败惩罚',
     enemies: [trollChief()],
@@ -175,10 +201,29 @@ export const DEBUG_BATTLES: readonly DebugBattle[] = [
   {
     id: 'debug_ability',
     difficulty: 'ability',
+    category: 'combat',
     title: '🔥 法师火球 (v0.6.2)',
     description: '测试法师: INT 16, MP 30/30, 预学火球+圣光治疗+重击+奥术护盾, 单只弱敌',
     enemies: [goblinScout()],
     expectedOutcome: 'ActionMenu 显示"技能"按钮 → SkillPicker 3 tab → 火球/治疗/重击/护盾',
+    playerOptions: {
+      maxMp: 30,
+      learnedAbilities: [
+        { abilityId: 'spell_fire_bolt', school: 'magic', learnedAt: 1 },
+        { abilityId: 'prayer_holy_heal', school: 'prayer', learnedAt: 1 },
+        { abilityId: 'art_warrior_smash', school: 'battle_art', learnedAt: 1 },
+        { abilityId: 'art_mage_arcane_ward', school: 'battle_art', learnedAt: 1 },
+      ],
+    },
+  },
+  {
+    id: 'debug_resist',
+    difficulty: 'ability',
+    category: 'item',
+    title: '🛡️ 抗性验证 (v0.6.3)',
+    description: '火抗+40%哥布林 vs 火球术, 验证装备抗性减伤',
+    enemies: [goblinScoutFireResist()],
+    expectedOutcome: '火球术命中后, 日志显示抗性减伤步骤, 伤害比无抗性时低 20%',
     playerOptions: {
       maxMp: 30,
       learnedAbilities: [

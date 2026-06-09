@@ -3,14 +3,15 @@ import {
   DEBUG_BATTLES,
   createDebugPlayer,
   goblinScout,
+  goblinScoutFireResist,
   goblinWarrior,
   trollChief,
 } from '../../src/data/debugPresets';
 
 describe('debugPresets', () => {
-  it('5 个预设齐, 难度分别对应 trivial/normal/hard/deadly/ability', () => {
-    expect(DEBUG_BATTLES).toHaveLength(5);
-    expect(DEBUG_BATTLES.map((b) => b.difficulty)).toEqual(['trivial', 'normal', 'hard', 'deadly', 'ability']);
+  it('6 个预设齐, 难度分别对应 trivial/normal/hard/deadly/ability/ability(resist)', () => {
+    expect(DEBUG_BATTLES).toHaveLength(6);
+    expect(DEBUG_BATTLES.map((b) => b.difficulty)).toEqual(['trivial', 'normal', 'hard', 'deadly', 'ability', 'ability']);
   });
 
   it('每张卡 1-3 个敌人, 所有敌人 side=enemy', () => {
@@ -111,5 +112,18 @@ describe('debugPresets', () => {
     expect(w.mp).toBe(0);
     expect(w.maxMp).toBe(0);
     expect(w.attributes.STR).toBe(14);
+  });
+
+  it('v0.6.3: goblinScoutFireResist 带火抗防具 (fire=40)', () => {
+    const g = goblinScoutFireResist();
+    expect(g.elementalResistances.fire).toBe(40);
+    expect(g.equipped.armor?.name).toBe('抗火皮甲');
+  });
+
+  it('v0.6.3: debug_resist 预设存在, category=item', () => {
+    const r = DEBUG_BATTLES.find((b) => b.id === 'debug_resist');
+    expect(r).toBeDefined();
+    expect(r?.category).toBe('item');
+    expect(r?.enemies[0]?.elementalResistances.fire).toBe(40);
   });
 });
