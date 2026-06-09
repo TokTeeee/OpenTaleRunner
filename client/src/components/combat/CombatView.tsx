@@ -9,11 +9,12 @@
  *   settled       -> 渲染 SettlementModal (结果)
  *
  * 状态机:
- * - selectedAction: 当前在选目标的动作 (attack)
+ * - selectedAction: 当前在选目标的动作 (attack / ability)
  * - selectedTargetId: 选中的目标
- * - onAction: 选 -> 进入 target 选模式 (attack)
+ * - onAction: 选 -> 进入 target 选模式 (attack) 或打开 skillPicker (ability)
  *   - defend / flee 不需目标, 直接 executeAction
  *   - item 走背包 modal (ActionMenu 已拦截)
+ *   - ability 打开 SkillPickerPopover -> 选 ability -> 进入 target 选模式
  * - 点目标 -> 拼装 CombatAction 调 useQTERunner.executeAction()
  * - QTE 开启时: useQTERunner 等 QTE 完成 -> 走 ActionResolver
  * - QTE 关闭时: useQTERunner 直接走 ActionResolver (modifier=0)
@@ -33,12 +34,14 @@ import { CombatLog } from './CombatLog';
 import { FloatingDamage } from './FloatingDamage';
 import { QTETimingBar } from './QTETimingBar';
 import { QTETypingBox } from './QTETypingBox';
+import { SkillPickerPopover } from './SkillPickerPopover';
 import { useQTERunner } from '../../hooks/useQTERunner';
 import { logger } from '../../utils/logger';
 import { ACTION_COSTS } from './combatActions';
 import { getSharedResolver } from '../../services/combat/ActionResolver';
 import { eventBus } from '../../services/event/EventBus';
 import { EVENTS } from '../../services/event/events';
+import { getAbility } from '../../data/abilities';
 import type { CombatAction, CombatOutcome, BalanceRating, Combatant } from '../../services/combat/types';
 
 type SelectedAction = ActionKind | null;
@@ -113,6 +116,9 @@ export function CombatView() {
 
   const [selectedAction, setSelectedAction] = useState<SelectedAction>(null);
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
+  // v0.6.2 — skill picker 状态
+  const [skillPickerOpen, setSkillPickerOpen] = useState(false);
+  const [selectedAbilityId, setSelectedAbilityId] = useState<string | null>(null);
   const [isProcessingEnemyTurn, setIsProcessingEnemyTurn] = useState(false);
   // 持久化 resolver 实例，保持跨回合的 dodgePenalty 状态
   const resolverRef = useRef(getSharedResolver());
@@ -228,24 +234,71 @@ export function CombatView() {
       void executeAction(action);
       return;
     }
-    // attack / skill -> 进入 target 选模式
+    // ability: 打开 skill picker 选 ability
+    if (kind === 'ability') {
+      setSkillPickerOpen(true);
+      setSelectedAction(null);
+      setSelectedTargetId(null);
+      logger.info('CombatView', '打开技能选择弹层');
+      return;
+    }
+    // attack -> 进入 target 选模式
     setSelectedAction(kind);
     setSelectedTargetId(null);
     logger.info('CombatView', `进入目标选择模式: ${kind}`);
   }, [playerId, executeAction]);
+
+  // v0.6.2 — 玩家在 SkillPickerPopover 选了 ability
+  const onAbilitySelect = useCallback((abilityId: string) => {
+    setSkillPickerOpen(false);
+    setSelectedAbilityId(abilityId);
+    // 检查 ability 的 target 类型, 决定是否需要 target 选模式
+    const ability = getAbility(abilityId);
+    if (!ability) {
+      logger.warn('CombatView', `未找到 ability: ${abilityId}`);
+      setSelectedAbilityId(null);
+      return;
+    }
+    // 'self' / 'all_enemies' / 'all_allies' 不需单选目标, 直接执行
+    if (ability.target === 'self' || ability.target === 'all_enemies' || ability.target === 'all_allies') {
+      const action: CombatAction = {
+        kind: 'ability',
+        userId: playerId,
+        abilityId,
+        targetId: ability.target === 'self' ? playerId : undefined,
+      };
+      logger.info('CombatView', `直接执行 ability (无目标): ${abilityId}`);
+      setSelectedAbilityId(null);
+      void executeAction(action);
+      return;
+    }
+    // 'enemy' / 'ally' -> 进入 target 选模式
+    setSelectedAction('ability');
+    setSelectedTargetId(null);
+    logger.info('CombatView', `选择 ability, 进入目标选择模式: ${abilityId}`);
+  }, [playerId, executeAction]);
+
+  // v0.6.2 — 关闭 skill picker (用户点 backdrop / close)
+  const onSkillPickerClose = useCallback(() => {
+    setSkillPickerOpen(false);
+  }, []);
 
   const onTargetSelect = useCallback(
     (targetId: string) => {
       if (!selectedAction) return;
       // 立即复位 UI 选状态 (executeAction 是 async, 不能等它)
       const actionKind = selectedAction;
+      const abilityId = selectedAbilityId;
       setSelectedAction(null);
       setSelectedTargetId(null);
+      setSelectedAbilityId(null);
 
       // 拼装 CombatAction (item 现在不走到这里, ActionMenu 已拦截, 但保留防御)
       let action: CombatAction;
       if (actionKind === 'attack') {
         action = { kind: 'attack', attackerId: playerId, targetId };
+      } else if (actionKind === 'ability' && abilityId) {
+        action = { kind: 'ability', userId: playerId, abilityId, targetId };
       } else {
         logger.warn('CombatView', `未处理 action kind: ${actionKind}`);
         return;
@@ -254,16 +307,17 @@ export function CombatView() {
       const target = combatants[targetId];
       logger.info(
         'CombatView',
-        `执行 ${actionKind} -> ${target?.name ?? targetId}`,
+        `执行 ${actionKind}${abilityId ? `(${abilityId})` : ''} -> ${target?.name ?? targetId}`,
       );
       void executeAction(action);
     },
-    [selectedAction, playerId, combatants, executeAction],
+    [selectedAction, selectedAbilityId, playerId, combatants, executeAction],
   );
 
   const onCancelTarget = useCallback(() => {
     setSelectedAction(null);
     setSelectedTargetId(null);
+    setSelectedAbilityId(null);
   }, []);
 
   // idle: 不渲染 (narrative 区域照常)
@@ -358,6 +412,11 @@ export function CombatView() {
       {/* QTE 弹层 (attack: 时序条; magic: 咒语输入) - 内部按 qteState.phase / type 路由. 用 key 强制 reset 内部 state */}
       <QTETimingBar key={`attack-${qteState.startedAt}`} />
       <QTETypingBox key={`magic-${qteState.startedAt}`} />
+
+      {/* v0.6.2 — skill picker 弹层 (玩家点 "技能" 按钮后) */}
+      {skillPickerOpen && (
+        <SkillPickerPopover onSelect={onAbilitySelect} onClose={onSkillPickerClose} />
+      )}
     </motion.div>
   );
 }

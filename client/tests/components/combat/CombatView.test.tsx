@@ -30,6 +30,7 @@ function makeCombatant(overrides: Partial<Combatant> & { id: string; side: 'play
     attributes: { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 },
     hp: 24, maxHp: 24,
     ap: 6, maxAp: 6,
+    mp: 30, maxMp: 30, // v0.6.2 — 同步自 character (默认 30)
     conditions: [],
     isDead: false,
     isFleeing: false,
@@ -50,9 +51,13 @@ function seedCharacter(): void {
     skills: [],
     inventory: { equipped: { weapon: null, armor: null, accessory: null }, backpack: [], currency: { gold: 100, silver: 0, copper: 0 } },
     hp: 24, maxHp: 24,
+    mp: 30, maxMp: 30, // v0.6.2 — MP 字段
     vital: { hunger: 0, thirst: 0, fatigue: 0, hygiene: 0, morale: 0, wound: 0, temperature: 37, encumbrance: 0 },
     reputation: { goodness: 0, violence: 0, lawfulness: 0, regional: {} },
     conditions: [],
+    elementalResistances: { fire: 0, ice: 0, lightning: 0, wind: 0, earth: 0, arcane: 0, holy: 0, shadow: 0 },
+    learnedAbilities: [], // v0.6.2 — 默认空, 测用例按需 .learnAbility()
+    defaultLearnedAbilities: [],
     joinedRegion: 'test',
     joinedWorldDay: 1,
     currentLocalDay: 1,
@@ -130,14 +135,13 @@ describe('CombatView: FSM 路由 (5 phase)', () => {
     expect(screen.getByTestId('combat-field')).toBeInTheDocument();
     expect(screen.getByTestId('action-menu')).toBeInTheDocument();
     expect(screen.getByTestId('combat-log')).toBeInTheDocument();
-    // 5 个动作按钮 (v0.5-dev: 移除 skill, 保留 attack/item/defend/wait/flee)
+    // v0.6.2 — 6 个动作按钮 (attack / item / defend / wait / flee / ability)
     expect(screen.getByTestId('action-attack')).toBeInTheDocument();
     expect(screen.getByTestId('action-item')).toBeInTheDocument();
     expect(screen.getByTestId('action-defend')).toBeInTheDocument();
     expect(screen.getByTestId('action-wait')).toBeInTheDocument();
     expect(screen.getByTestId('action-flee')).toBeInTheDocument();
-    // skill 按钮已隐藏
-    expect(screen.queryByTestId('action-skill')).toBeNull();
+    expect(screen.getByTestId('action-ability')).toBeInTheDocument();
   });
 
   it('resolving 阶段渲染结算中', () => {
@@ -376,5 +380,101 @@ describe('CombatView: QTE 弹层渲染', () => {
     render(<CombatView />);
     expect(screen.getByTestId('qte-typing-box')).toBeInTheDocument();
     expect(screen.queryByTestId('qte-timing-bar')).toBeNull();
+  });
+});
+
+describe('CombatView: v0.6.2 ability flow (Task 17)', () => {
+  it('点 ability 按钮 -> 打开 SkillPickerPopover (出现 backdrop)', () => {
+    seedCombat('active');
+    // 学一个火球 (target: 'enemy')
+    useCharacterStore.getState().learnAbility('spell_fire_bolt');
+    render(<CombatView />);
+
+    // 弹层初始未渲染
+    expect(screen.queryByTestId('skill-picker-popover')).toBeNull();
+    // 点 ability
+    fireEvent.click(screen.getByTestId('action-ability'));
+    // 弹层出现
+    expect(screen.getByTestId('skill-picker-popover')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-picker-backdrop')).toBeInTheDocument();
+    // 火球卡出现
+    expect(screen.getByTestId('ability-card-spell_fire_bolt')).toBeInTheDocument();
+  });
+
+  it('点 backdrop 关闭 SkillPickerPopover', () => {
+    seedCombat('active');
+    useCharacterStore.getState().learnAbility('spell_fire_bolt');
+    render(<CombatView />);
+
+    fireEvent.click(screen.getByTestId('action-ability'));
+    expect(screen.getByTestId('skill-picker-popover')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('skill-picker-backdrop'));
+    expect(screen.queryByTestId('skill-picker-popover')).toBeNull();
+  });
+
+  it('选 enemy-target ability -> 关闭弹层, 进入 target 选模式 (data-selected-action=ability)', () => {
+    seedCombat('active');
+    useCharacterStore.getState().learnAbility('spell_fire_bolt');
+    render(<CombatView />);
+
+    fireEvent.click(screen.getByTestId('action-ability'));
+    fireEvent.click(screen.getByTestId('ability-card-spell_fire_bolt'));
+
+    // 弹层关闭
+    expect(screen.queryByTestId('skill-picker-popover')).toBeNull();
+    // 进入 target 选模式
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', 'ability');
+    expect(screen.getByText(/取消 ability/)).toBeInTheDocument();
+  });
+
+  it('选 self-target ability -> 弹层关闭后直接执行 (不需 target 选模式)', () => {
+    seedCombat('active');
+    // 奥术护盾 target='self' (school=battle_art)
+    useCharacterStore.getState().learnAbility('art_mage_arcane_ward');
+    render(<CombatView />);
+
+    fireEvent.click(screen.getByTestId('action-ability'));
+    // 切换到 battle_art tab (默认是 magic)
+    fireEvent.click(screen.getByTestId('tab-battle_art'));
+    fireEvent.click(screen.getByTestId('ability-card-art_mage_arcane_ward'));
+
+    // 弹层关闭, selected-action 复位 (无 target 选模式)
+    expect(screen.queryByTestId('skill-picker-popover')).toBeNull();
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', '');
+  });
+
+  it('选 ability 后点敌人卡片 -> executeAction(ability, ...), 复位 selectedAction', () => {
+    seedCombat('active');
+    useCharacterStore.getState().learnAbility('spell_fire_bolt');
+    render(<CombatView />);
+
+    fireEvent.click(screen.getByTestId('action-ability'));
+    fireEvent.click(screen.getByTestId('ability-card-spell_fire_bolt'));
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', 'ability');
+
+    // 点敌人
+    fireEvent.click(screen.getByTestId('combatant-card-e-1'));
+    // 复位
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', '');
+  });
+
+  it('取消按钮也清掉 selectedAbilityId (再次点 ability 不残留状态)', () => {
+    seedCombat('active');
+    useCharacterStore.getState().learnAbility('spell_fire_bolt');
+    render(<CombatView />);
+
+    fireEvent.click(screen.getByTestId('action-ability'));
+    fireEvent.click(screen.getByTestId('ability-card-spell_fire_bolt'));
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', 'ability');
+
+    // 取消
+    fireEvent.click(screen.getByText(/取消 ability/));
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', '');
+
+    // 重新点 ability + 选 fire bolt (不应残留旧 ability)
+    fireEvent.click(screen.getByTestId('action-ability'));
+    fireEvent.click(screen.getByTestId('ability-card-spell_fire_bolt'));
+    expect(screen.getByTestId('combat-view')).toHaveAttribute('data-selected-action', 'ability');
   });
 });
