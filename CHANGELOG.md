@@ -1,5 +1,62 @@
 # Changelog
 
+## v0.6.2 — 2026-06-08 (能力系统与战斗接入)
+
+v0.6.1 Spell/Prayer 双类型重构为统一 `Ability` (school: magic/prayer/battle_art), 并完整接入战斗循环.
+
+### What's in this release
+
+**数据层**
+- 重构 v0.6.1 Spell/Prayer 双类型为统一 `Ability` (school: magic | prayer | battle_art)
+- 16 个初始能力: 6 魔法 (火/冰/雷/风/土/奥术) + 6 祷告 (神圣×4 + 暗影×2) + 4 战技 (重击/剔骨/奥术护盾/祝福之击)
+- `checkCanLearn` 支持 `Partial<Attributes>` 跨职业学习
+- `Element` 类型 8 元素 (fire/ice/lightning/wind/earth/arcane/holy/shadow)
+
+**战斗接入**
+- `CombatAction` 新增 `ability` kind (`{ kind: 'ability'; userId; abilityId; targetId? }`)
+- `ActionResolver.resolveAbility` 路径 — 统一处理伤害/治疗/buff 三种 effect
+  - 抗性公式: `applyResistance(damage, resistance) = damage * (1 - resistance/200)`
+  - 4 战技 special: `high_crit` / `armor_pierce` / `self_buff` / `life_steal`
+  - AP 不足抛 `InsufficientAPError`
+- `ActionMenu` 6 按钮布局 (新增"技能"按钮)
+- `SkillPickerPopover` 3 tab 弹层 (魔法 / 祷告 / 战技), 用 React Portal 渲染
+- `useQTERunner` 接入 ability QTE 路径
+- `CombatantCard` HP 条下方展示非 0 元素抗性 chip
+- 资源双轨: AP (行动点) + MP (法力点)
+
+**类型扩展**
+- `Character` 新增 `learnedAbilities: LearnedAbility[]` + `defaultLearnedAbilities: string[]` + `elementalResistances: ElementalResistances` + `mp/maxMp`
+- `Combatant` 新增 `elementalResistances: ElementalResistances`
+- `types/character.ts` 导出 `AttributeName`
+
+**事件系统 (叙事 hook)**
+- 新增 `ABILITY_USED` 事件 — payload: `{ abilityId, userId, targetId, school, element, success, damage?, heal? }`
+- `resolveAbility` 成功路径 emit (伤害/治疗/buff), d20=1 未命中 `success: false` 也 emit
+- 错误路径 (AP 不足、未知 abilityId) 不 emit
+- 供 LLM / 叙事系统 fan-out 订阅
+
+**新组件 (4 个)**
+- `ResistanceDisplay` — 8 元素抗性 chip (cyan=抗 / rose=弱 / gray=中), `showZeros` / `compact` 模式
+- `SkillPickerPopover` — 3 tab 弹层, portal 渲染
+- 修改 `CombatantCard` — 集成抗性 chip
+- 修改 `DebugModeModal` — 新增 `ability` 难度 (紫色 `SPELL` 标签)
+
+**Store 变更**
+- `characterStore` 增 3 mutators: `learnAbility(id)` (幂等), `forgetAbility(id)`, `setResistance(element, value)` (钳制 [-100, 100])
+- `debugPresets` 新增 `debug_ability` 难度 — 法师 (INT 16, MP 20/20) + 哥布林斥候, 预学 `spell_fire_bolt`
+- `resetStores` 迁移: `client/tests/utils/resetStores.ts` → `client/src/utils/resetStores.ts`, 旧名 `resetClientStores` 保留 re-export 兼容
+
+**测试 +30+ (4 文件)**
+- `ResistanceDisplay.test.tsx` 11 个 — 8 元素 / 颜色 / +/- 前缀 / showZeros / compact / 钳制 ±200
+- `resolveAbilityNarrativeHook.test.ts` 7 个 — ABILITY_USED 触发 / fan-out / 错误路径不 emit
+- `characterStore_v062.test.ts` 14 个 — 默认值 + 3 mutator 路径
+- `resetStores_v062.test.ts` 5 个 — v0.6.2 字段重置 (含 re-export 兼容)
+- `e2e/abilityCombat.test.ts` 4 个 (新) — 法师释放火球 (伤害/抗性/event/fan-out)
+
+**关键 commit**
+- 16 个 task, 1 spec, 1 plan, 1 CHANGELOG
+- 详见 `docs/superpowers/specs/2026-06-07-v0.6.2-combat-ability-integration-design.md`
+
 ## v0.5.14 — 2026-06-07 (character creation + CharacterPanel 体验修订)
 
 基于实际体验反馈, 4 处 UX 修订, Wizard 7 步重排 + CharacterPanel 紧凑化 + 新 2 组件 + 4 prompt 升级.
