@@ -13,9 +13,13 @@ const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤
 export function CharacterPanel() {
   const character = useCharacterStore((s) => s.character);
   const [classModalOpen, setClassModalOpen] = useState(false);  // v0.5.14
+  const [pending, setPending] = useState<Partial<Attributes>>({});
   if (!character) return <div className="p-4 text-gray-600 text-xs text-center">尚未创建角色</div>;
 
   const attrs = character.attributes;
+  const unspentPoints = character.unspentAttributePoints ?? 0;
+  const pendingTotal = Object.values(pending).reduce((s, v) => s + v, 0);
+  const remaining = unspentPoints - pendingTotal;
   const hpPct = (character.hp / character.maxHp) * 100;
   const classDef = character.classId ? getClass(character.classId) : null;  // v0.5.14
 
@@ -112,17 +116,72 @@ export function CharacterPanel() {
       </div>
       )}
 
-      {/* Attributes (v0.5.14: 6 行紧凑 chip) */}
+      {/* Attributes (v0.6.4: 分配模式 +1/-1) */}
       <div className="mt-1.5">
         <div className="grid grid-cols-2 gap-1" data-testid="attribute-grid">
-          {Object.entries(attrs).map(([k, v]) => (
-            <div key={k} className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px]">
-              <span className="w-4 text-center">{ATTR_ICONS[k] || '●'}</span>
-              <span className="text-gray-400 w-8">{ATTRIBUTE_LABELS[k as keyof typeof ATTRIBUTE_LABELS]}</span>
-              <span className="text-gray-200 font-mono ml-auto font-semibold">{v}</span>
-            </div>
-          ))}
+          {Object.entries(attrs).map(([k, v]) => {
+            const key = k as keyof Attributes;
+            const pendingDelta = pending[key] ?? 0;
+            const isPending = pendingDelta > 0;
+            return (
+              <div key={k} className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px]">
+                <span className="w-4 text-center">{ATTR_ICONS[k] || '●'}</span>
+                <span className="text-gray-400 w-8">{ATTRIBUTE_LABELS[key]}</span>
+                <span className={`font-mono ml-auto font-semibold ${isPending ? 'text-yellow-300' : 'text-gray-200'}`}>
+                  {v + pendingDelta}
+                </span>
+                {unspentPoints > 0 && (
+                  <>
+                    {isPending && (
+                      <button
+                        data-testid={`attr-minus-${k}`}
+                        onClick={() => setPending((p) => {
+                          const next = { ...p };
+                          next[key] = (next[key] ?? 0) - 1;
+                          if (next[key] <= 0) delete next[key];
+                          return next;
+                        })}
+                        className="w-4 h-4 rounded bg-white/10 text-gray-400 hover:bg-white/20 text-[9px] leading-none"
+                      >
+                        -
+                      </button>
+                    )}
+                    <button
+                      data-testid={`attr-plus-${k}`}
+                      disabled={remaining <= 0}
+                      onClick={() => setPending((p) => ({ ...p, [key]: (p[key] ?? 0) + 1 }))}
+                      className="w-4 h-4 rounded bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30 text-[9px] leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
+        {unspentPoints > 0 && pendingTotal > 0 && (
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-[10px] text-cyan-300/80">剩余 {remaining} 点</span>
+            <button
+              data-testid="attr-confirm"
+              onClick={() => {
+                useCharacterStore.getState().allocateAttribute(pending);
+                setPending({});
+              }}
+              className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+            >
+              确认分配
+            </button>
+            <button
+              data-testid="attr-reset"
+              onClick={() => setPending({})}
+              className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20"
+            >
+              重置
+            </button>
+          </div>
+        )}
       </div>
 
       {/* v0.5.14 — SkillsSection 合并 3 种 chip (origin蓝/learned绿/available黄) */}
@@ -399,7 +458,7 @@ function LevelBar({ character }: { character: Character }) {
       </div>
       {unspentPoints > 0 && (
         <div className="mt-1 text-[10px] text-cyan-300/80">
-          ✨ {unspentPoints} 个属性点待分配 — 点击下方 +1 按钮
+          ✨ {unspentPoints} 个属性点待分配
         </div>
       )}
     </div>

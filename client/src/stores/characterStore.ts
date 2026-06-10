@@ -67,6 +67,8 @@ interface CharacterState {
   forgetAbility: (abilityId: string) => void;
   /** 设置元素抗性, 钳制到 [-100, 100]. */
   setResistance: (element: Element, value: number) => void;
+  /** v0.6.4 — 分配属性点 (校验总数 ≤ unspentAttributePoints, 属性钳制 [1,20]) */
+  allocateAttribute: (allocation: Partial<Attributes>) => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
@@ -286,6 +288,33 @@ export const useCharacterStore = create<CharacterState>((set) => ({
         character: {
           ...s.character,
           elementalResistances: { ...s.character.elementalResistances, [element as keyof ElementalResistances]: clamped },
+        },
+      };
+    }),
+
+  allocateAttribute: (allocation) =>
+    set((s) => {
+      if (!s.character) return s;
+      const entries = Object.entries(allocation) as [keyof Attributes, number][];
+      if (entries.length === 0) return s;
+      if (entries.some(([, v]) => v <= 0)) return s;
+
+      const totalRequested = entries.reduce((sum, [, v]) => sum + v, 0);
+      if (totalRequested > s.character.unspentAttributePoints) return s;
+
+      const nextAttrs = { ...s.character.attributes };
+      let actualSpent = 0;
+      for (const [k, v] of entries) {
+        const newVal = Math.min(20, nextAttrs[k] + v);
+        actualSpent += newVal - nextAttrs[k];
+        nextAttrs[k] = newVal;
+      }
+
+      return {
+        character: {
+          ...s.character,
+          attributes: nextAttrs,
+          unspentAttributePoints: s.character.unspentAttributePoints - actualSpent,
         },
       };
     }),
