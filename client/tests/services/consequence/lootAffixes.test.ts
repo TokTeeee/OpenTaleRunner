@@ -67,4 +67,43 @@ describe('generateLootAffixes', () => {
     const b = generateLootAffixes(gained, NOW, fixedRng);
     expect(a).toEqual(b);
   });
+
+  it('subCategory=staff 时可抽到法杖专属词条', () => {
+    // 构造 RNG: int(2)=0 (1个buff), next()=0.8 (命中 staff_int_1), next()=0.9 (跳过debuff)
+    const staffRng: RNG = {
+      next: (() => { const v = [0.8, 0.9]; let i = 0; return () => v[i++ % v.length]; })(),
+      int: () => 0,
+    };
+    const gained: ItemGainedData = {
+      name: '学徒法杖',
+      category: 'weapon',
+      quality: '精良',
+      subCategory: 'staff',
+    };
+    const result = generateLootAffixes(gained, NOW, staffRng);
+    // 应抽到 staff_int_1 (INT +2)
+    const hasStaffAffix = result.some(
+      (e) => e.type === 'attribute_mod' && (e.value as any)?.INT,
+    );
+    expect(hasStaffAffix).toBe(true);
+  });
+
+  it('subCategory 缺失时不会抽到法杖/圣印记专属词条', () => {
+    // 同样的 RNG, 但无 subCategory → 法杖词条不在候选池中
+    const staffRng: RNG = {
+      next: (() => { const v = [0.8, 0.9]; let i = 0; return () => v[i++ % v.length]; })(),
+      int: () => 0,
+    };
+    const gained: ItemGainedData = {
+      name: '精良之剑',
+      category: 'weapon',
+      quality: '精良',
+    };
+    const result = generateLootAffixes(gained, NOW, staffRng);
+    // 无 subCategory → 法杖/圣印记专属词条不应出现
+    const staffOrSymbolAffix = result.find(
+      (e) => e.description?.includes('INT') || e.description?.includes('WIS') || e.type === 'mp_bonus',
+    );
+    expect(staffOrSymbolAffix).toBeUndefined();
+  });
 });

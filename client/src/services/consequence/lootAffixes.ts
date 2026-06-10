@@ -36,7 +36,7 @@ export function generateLootAffixes(
   // 类型断言: ItemGainedData.category/quality 是 string (LLM 自由格式)
   // drawAffixes 内部 isPoolKey 做实际过滤
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- LLM 自由格式, 由 isPoolKey 守卫
-  const pool = drawAffixes(category as any, quality as any, rng);
+  const pool = drawAffixes(category as any, quality as any, rng, gained.subCategory);
 
   return pool.map((effect, i) => ({
     ...effect,
