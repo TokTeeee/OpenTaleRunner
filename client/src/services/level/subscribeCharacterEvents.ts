@@ -81,6 +81,7 @@ export function subscribeCharacterExpEvents(opts: SubscribeOptions = {}): () => 
           exp: number;
           expToNext: number;
           unspentAttributePoints: number;
+          unspentSkillPoints: number;
         };
         useCharacterStore.getState().applyServerExpGrant(patch);
       } catch {

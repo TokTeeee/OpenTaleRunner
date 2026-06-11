@@ -17,6 +17,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getClass } from '../../../data/classes';
+import { listAllAbilities } from '../../../data/abilities';
+import { checkCanLearn } from '../../../services/abilities/learnAbility';
+import { useCharacterStore } from '../../../stores/characterStore';
 import type { ClassNode, ClassNodeEffect } from '../../../types/class';
 
 type Props = {
@@ -25,6 +28,8 @@ type Props = {
   onClose: () => void;
   learnedNodes: string[];
   currentLevel: number;
+  learnedAbilities: string[];
+  unspentSkillPoints: number;
 };
 
 function formatEffect(effect: ClassNodeEffect): string {
@@ -40,8 +45,9 @@ function formatEffect(effect: ClassNodeEffect): string {
   }
 }
 
-export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes }: Props) {
+export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes, learnedAbilities, unspentSkillPoints }: Props) {
   const [selectedNode, setSelectedNode] = useState<ClassNode | null>(null);
+  const [tab, setTab] = useState<'talent' | 'skill'>('talent');
   const classDef = getClass(classId);
 
   // 统一关闭处理: 关闭时清空选中节点, 避免下次打开时残留
@@ -96,49 +102,74 @@ export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes }: 
           >
             ✕
           </button>
+          <div className="flex gap-1 mt-1">
+            <button
+              data-testid="tab-talent"
+              onClick={() => setTab('talent')}
+              className={`text-xs px-3 py-1 rounded ${tab === 'talent' ? 'bg-amber-500/20 text-amber-300' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              天赋
+            </button>
+            <button
+              data-testid="tab-skill"
+              onClick={() => setTab('skill')}
+              className={`text-xs px-3 py-1 rounded ${tab === 'skill' ? 'bg-purple-500/20 text-purple-300' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              技能
+              {unspentSkillPoints > 0 && <span className="ml-1 text-[9px] text-purple-400">({unspentSkillPoints})</span>}
+            </button>
+          </div>
         </div>
 
-        {/* 节点网格 (3 列 × 4 行, 按 tier 分组排序) */}
+        {/* 内容区域 — TAB 切换 */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div
-            className="grid gap-3"
-            style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
-          >
-            {Array.from({ length: tierMax }, (_, i) => i + 1).map((tier) =>
-              nodes
-                .filter((n) => n.tier === tier)
-                .sort((a, b) => a.slot - b.slot)
-                .map((node) => {
-                  const learned = learnedSet.has(node.id);
-                  const isSelected = selectedNode?.id === node.id;
-                  const baseStyle = learned
-                    ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200'
-                    : 'bg-white/5 border-white/20 text-gray-200 hover:bg-white/10';
-                  const ringStyle = isSelected ? 'ring-2 ring-amber-400' : '';
-                  return (
-                    <button
-                      key={node.id}
-                      data-testid={`skilltree-node-${node.id}`}
-                      onClick={() => setSelectedNode(node)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all ${baseStyle} ${ringStyle}`}
-                    >
-                      <div className="text-[10px] text-gray-500 uppercase tracking-wider">
-                        T{node.tier}·{node.slot}
-                      </div>
-                      <div className="text-sm font-semibold mt-1">{node.name}</div>
-                      <div className="text-[10px] mt-2 opacity-80">
-                        {formatEffect(node.effect)}
-                      </div>
-                      {learned && (
-                        <div className="text-[10px] text-emerald-400 mt-2 font-medium">
-                          ✅ 已学
+          {tab === 'talent' ? (
+            <div
+              className="grid gap-3"
+              style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}
+            >
+              {Array.from({ length: tierMax }, (_, i) => i + 1).map((tier) =>
+                nodes
+                  .filter((n) => n.tier === tier)
+                  .sort((a, b) => a.slot - b.slot)
+                  .map((node) => {
+                    const learned = learnedSet.has(node.id);
+                    const isSelected = selectedNode?.id === node.id;
+                    const baseStyle = learned
+                      ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200'
+                      : 'bg-white/5 border-white/20 text-gray-200 hover:bg-white/10';
+                    const ringStyle = isSelected ? 'ring-2 ring-amber-400' : '';
+                    return (
+                      <button
+                        key={node.id}
+                        data-testid={`skilltree-node-${node.id}`}
+                        onClick={() => setSelectedNode(node)}
+                        className={`p-4 rounded-lg border-2 text-left transition-all ${baseStyle} ${ringStyle}`}
+                      >
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wider">
+                          T{node.tier}·{node.slot}
                         </div>
-                      )}
-                    </button>
-                  );
-                }),
-            )}
-          </div>
+                        <div className="text-sm font-semibold mt-1">{node.name}</div>
+                        <div className="text-[10px] mt-2 opacity-80">
+                          {formatEffect(node.effect)}
+                        </div>
+                        {learned && (
+                          <div className="text-[10px] text-emerald-400 mt-2 font-medium">
+                            ✅ 已学
+                          </div>
+                        )}
+                      </button>
+                    );
+                  }),
+              )}
+            </div>
+          ) : (
+            <SkillTabContent
+              classId={classId}
+              learnedAbilities={learnedAbilities}
+              unspentSkillPoints={unspentSkillPoints}
+            />
+          )}
         </div>
 
         {/* 节点详情面板 */}
@@ -176,5 +207,73 @@ export function ClassSkillTreeModal({ classId, isOpen, onClose, learnedNodes }: 
       </div>
     </div>,
     document.body,
+  );
+}
+
+function SkillTabContent({ classId, learnedAbilities, unspentSkillPoints }: {
+  classId: string;
+  learnedAbilities: string[];
+  unspentSkillPoints: number;
+}) {
+  const learnAbilityWithPoint = useCharacterStore((s) => s.learnAbilityWithPoint);
+  const character = useCharacterStore((s) => s.character);
+  const allAbilities = listAllAbilities();
+  const classAbilities = allAbilities.filter((a) => {
+    const r = a.requirements.classes;
+    return r.includes('any') || r.includes(classId as any);
+  });
+
+  if (classAbilities.length === 0) {
+    return <div className="text-gray-500 text-sm text-center py-8">该职业暂无可学技能</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {classAbilities.map((ability) => {
+        const learned = learnedAbilities.includes(ability.id);
+        const canLearn = !learned && unspentSkillPoints > 0 && character && checkCanLearn({ character, ability }).canLearn;
+        const checkResult = !learned && character ? checkCanLearn({ character, ability }) : null;
+        return (
+          <div
+            key={ability.id}
+            data-testid={`skill-item-${ability.id}`}
+            className={`p-3 rounded-lg border text-left ${
+              learned
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-white/5 border-white/10'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <span className={`text-sm font-medium ${learned ? 'text-emerald-300' : 'text-gray-200'}`}>
+                  {ability.name}
+                </span>
+                <span className="text-[10px] text-gray-500 ml-2">
+                  {ability.school === 'magic' ? '魔法' : ability.school === 'prayer' ? '祷告' : '战技'}
+                </span>
+              </div>
+              {learned ? (
+                <span className="text-[10px] text-emerald-400">✅ 已学</span>
+              ) : (
+                <button
+                  data-testid={`skill-learn-${ability.id}`}
+                  disabled={!canLearn}
+                  onClick={() => learnAbilityWithPoint(ability.id)}
+                  className="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  学习 (1点)
+                </button>
+              )}
+            </div>
+            <div className="text-[10px] text-gray-400 mt-1">{ability.description.shortEffect}</div>
+            {checkResult && !checkResult.canLearn && (
+              <div className="text-[9px] text-red-400/70 mt-1">
+                需要: {checkResult.reason === 'attribute' ? checkResult.required : checkResult.reason === 'level' ? checkResult.required : '职业不匹配'}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }

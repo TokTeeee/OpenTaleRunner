@@ -20,6 +20,7 @@ function makeChar(level: number, classId: string | null, pickedTiers: number[] =
     conditions: [], recentHistory: [],
     joinedRegion: '', joinedWorldDay: 1, currentLocalDay: 1, lastActionTime: '',
     level, exp: 0, expToNext: 100, unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     classId, classSkills,
   };
 }

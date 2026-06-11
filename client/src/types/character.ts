@@ -67,6 +67,7 @@ export interface Character {
   exp: number;                         // current EXP towards next level
   expToNext: number;                   // server-emitted
   unspentAttributePoints: number;      // 0-20 free allocation pool
+  unspentSkillPoints: number;           // 0-20, 升级时 +1
   // v0.5.2 Class fields (default null/[] in v0.5.1, used from v0.5.2)
   classId: string | null;
   classSkills: ClassSkillNode[];

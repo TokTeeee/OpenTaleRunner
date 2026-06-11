@@ -250,6 +250,8 @@ export function CharacterPanel() {
         onClose={() => setClassModalOpen(false)}
         learnedNodes={(character.classSkills ?? []).map((n) => n.nodeId)}
         currentLevel={character.level ?? 1}
+        learnedAbilities={character.learnedAbilities.map((la) => la.abilityId)}
+        unspentSkillPoints={character.unspentSkillPoints ?? 0}
       />
     </div>
   );
@@ -438,6 +440,7 @@ function LevelBar({ character }: { character: Character }) {
   const exp = character.exp ?? 0;
   const expToNext = character.expToNext ?? 100;
   const unspentPoints = character.unspentAttributePoints ?? 0;
+  const unspentSkillPts = character.unspentSkillPoints ?? 0;
   const pct = expToNext > 0 ? Math.min(100, (exp / expToNext) * 100) : 100;
   const isMaxLevel = level >= 20 && expToNext === 0;
   return (
@@ -459,6 +462,11 @@ function LevelBar({ character }: { character: Character }) {
       {unspentPoints > 0 && (
         <div className="mt-1 text-[10px] text-cyan-300/80">
           ✨ {unspentPoints} 个属性点待分配
+        </div>
+      )}
+      {unspentSkillPts > 0 && (
+        <div className="mt-0.5 text-[10px] text-purple-300/80">
+          🔮 {unspentSkillPts} 个技能点待分配
         </div>
       )}
     </div>

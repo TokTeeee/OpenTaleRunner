@@ -12,6 +12,7 @@ import type { GameSnapshot } from '../types/hooks';
 import { eventBus } from '../services/event/EventBus';
 import { EVENTS } from '../services/event/events';
 import { getAbility } from '../data/abilities';
+import { checkCanLearn } from '../services/abilities/learnAbility';
 
 function buildHookSnapshot(character: Character): GameSnapshot {
   return {
@@ -57,7 +58,7 @@ interface CharacterState {
   /** 应用/反应用 物品的 attribute_mod 词条, true=装备, false=卸下 */
   applyItemEffects: (item: Item, apply: boolean) => void;
   /** v0.5.1 — 用服务端返回值应用 EXP 授权 (Pydantic 返回 { level, exp, expToNext, unspentAttributePoints }) */
-  applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number }) => void;
+  applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number; unspentSkillPoints: number }) => void;
   /** v0.5.3 — 设置角色职业与已解锁技能 (本地 + 调用方负责 PATCH /class 同步服务端) */
   setClass: (classId: string | null, classSkills: ClassSkillNode[]) => void;
   // ---- v0.6.2 ability / resistance mutators ----
@@ -69,6 +70,8 @@ interface CharacterState {
   setResistance: (element: Element, value: number) => void;
   /** v0.6.4 — 分配属性点 (校验总数 ≤ unspentAttributePoints, 属性钳制 [1,20]) */
   allocateAttribute: (allocation: Partial<Attributes>) => void;
+  /** v0.6.4b — 消耗技能点学习 ability (校验+扣减) */
+  learnAbilityWithPoint: (abilityId: string) => void;
 }
 
 export const useCharacterStore = create<CharacterState>((set) => ({
@@ -232,6 +235,7 @@ export const useCharacterStore = create<CharacterState>((set) => ({
           exp: patch.exp,
           expToNext: patch.expToNext,
           unspentAttributePoints: patch.unspentAttributePoints,
+          unspentSkillPoints: patch.unspentSkillPoints,
         },
       };
     }),
@@ -315,6 +319,25 @@ export const useCharacterStore = create<CharacterState>((set) => ({
           ...s.character,
           attributes: nextAttrs,
           unspentAttributePoints: s.character.unspentAttributePoints - actualSpent,
+        },
+      };
+    }),
+
+  learnAbilityWithPoint: (abilityId) =>
+    set((s) => {
+      if (!s.character) return s;
+      if (s.character.unspentSkillPoints <= 0) return s;
+      if (s.character.learnedAbilities.some((la) => la.abilityId === abilityId)) return s;
+      const ability = getAbility(abilityId);
+      if (!ability) return s;
+      const result = checkCanLearn({ character: s.character, ability });
+      if (!result.canLearn) return s;
+      const school = ability.school ?? 'magic';
+      return {
+        character: {
+          ...s.character,
+          learnedAbilities: [...s.character.learnedAbilities, { abilityId, school, learnedAt: Date.now() }],
+          unspentSkillPoints: s.character.unspentSkillPoints - 1,
         },
       };
     }),

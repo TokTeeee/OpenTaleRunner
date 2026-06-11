@@ -47,6 +47,7 @@ function makeChar(level: number): Character {
     exp: 0,
     expToNext: 100,
     unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     classId: null,
     classSkills: [],
   };

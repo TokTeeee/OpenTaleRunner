@@ -23,6 +23,8 @@ function makeChar(skills: Skill[] = []): Character {
     joinedWorldDay: 1,
     currentLocalDay: 1,
     lastActionTime: new Date().toISOString(),
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   } as unknown as Character;
 }
 

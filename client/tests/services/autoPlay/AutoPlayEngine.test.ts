@@ -40,6 +40,8 @@ function makeCharacter(): Character {
     currentLocalDay: 1,
     lastActionTime: new Date().toISOString(),
     recentHistory: [],
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   };
 }
 

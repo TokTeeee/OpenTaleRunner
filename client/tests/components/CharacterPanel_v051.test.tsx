@@ -24,6 +24,7 @@ function makeChar(over: Partial<Character> = {}): Character {
     joinedRegion: 'r1', joinedWorldDay: 1, currentLocalDay: 1, lastActionTime: '',
     recentHistory: [],
     level: 1, exp: 50, expToNext: 100, unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     classId: null, classSkills: [],
     // v0.6.2
     elementalResistances: { ...ZERO_RESISTANCES } as ElementalResistances,

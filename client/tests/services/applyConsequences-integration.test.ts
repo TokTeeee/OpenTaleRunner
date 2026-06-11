@@ -26,6 +26,8 @@ function makeChar(): Character {
     currentLocalDay: 1,
     currentRegion: 'test',
     lastActionTime: new Date().toISOString(),
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   } as unknown as Character;
 }
 

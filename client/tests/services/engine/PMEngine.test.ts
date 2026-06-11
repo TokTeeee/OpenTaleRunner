@@ -63,6 +63,8 @@ function makeCharacter(): Character {
     background: '一位流浪者',
     appearance: '',
     race: 'human',
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   } as Character;
 }
 

@@ -11,6 +11,7 @@ export interface ExpGrantInput {
   level: number;
   exp: number;
   unspentAttributePoints: number;
+  unspentSkillPoints: number;
 }
 
 export type ExpGrantResult = ExpGrantInput;
@@ -29,10 +30,10 @@ export function grantExp(
 ): ExpGrantResult {
   const mult = DIFFICULTY_MULT[difficulty] ?? 1.0;
   const final = Math.floor(amount * mult);
-  const { exp, unspentAttributePoints } = state;
+  const { exp, unspentAttributePoints, unspentSkillPoints } = state;
   let level = state.level;
   if (level >= MAX_LEVEL || final <= 0) {
-    return { level, exp, unspentAttributePoints };
+    return { level, exp, unspentAttributePoints, unspentSkillPoints };
   }
   let pool = exp + final;
   while (level < MAX_LEVEL) {
@@ -42,5 +43,6 @@ export function grantExp(
     level += 1;
   }
   if (level >= MAX_LEVEL) pool = 0;
-  return { level, exp: pool, unspentAttributePoints: unspentAttributePoints + (level - state.level) };
+  const levelGain = level - state.level;
+  return { level, exp: pool, unspentAttributePoints: unspentAttributePoints + levelGain, unspentSkillPoints: unspentSkillPoints + levelGain };
 }

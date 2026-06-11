@@ -36,6 +36,8 @@ function makeBaseCharacter(overrides: Partial<Character> = {}): Character {
     joinedRegion: 'test-region',
     background: '一位流浪者',
     appearance: '',
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     ...overrides,
   } as Character;
 }

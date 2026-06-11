@@ -72,11 +72,13 @@ async def grant_exp_endpoint(
     new_level, new_exp = apply_exp_formula(old_level, char.get("exp", 0), body.amount, body.difficulty)
     earned_levels = max(0, new_level - old_level)
     attr_points = char.get("unspentAttributePoints", 0) + earned_levels
+    skill_points = char.get("unspentSkillPoints", 0) + earned_levels
     patch = {
         "level": new_level,
         "exp": new_exp,
         "expToNext": exp_to_next(new_level),
         "unspentAttributePoints": attr_points,
+        "unspentSkillPoints": skill_points,
     }
     await repo.update(char_id, {**char, **patch})
     return patch

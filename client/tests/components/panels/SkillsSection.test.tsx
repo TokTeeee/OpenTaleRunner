@@ -21,6 +21,8 @@ function makeChar(overrides: Partial<any> = {}) {
     level: 1,
     inventory: { equipped: { weapon: null, armor: null }, currency: { gold: 0, silver: 0, copper: 0 }, backpack: [] },
     conditions: [],
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     ...overrides,
   };
 }

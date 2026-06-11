@@ -50,6 +50,7 @@ function makeChar(level: number, classId: string | null, picked: string[]): Char
     exp: 0,
     expToNext: 100,
     unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
     classId,
     classSkills: picked.map((nodeId) => ({ classId: classId || '', nodeId, unlockedAt: 0 })),
   };

@@ -20,6 +20,8 @@ function makeChar(): Character {
     conditions: [],
     joinedRegion: 'r1', joinedWorldDay: 1, currentLocalDay: 1, lastActionTime: '',
     recentHistory: [],
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   };
 }
 

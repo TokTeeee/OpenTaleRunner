@@ -32,6 +32,8 @@ function makeChar(id: string, items: { equipped?: Partial<ItemType>; backpack?: 
     joinedWorldDay: 1,
     currentLocalDay: 1,
     lastActionTime: new Date().toISOString(),
+    unspentAttributePoints: 0,
+    unspentSkillPoints: 0,
   } as unknown as Character;
 }
 

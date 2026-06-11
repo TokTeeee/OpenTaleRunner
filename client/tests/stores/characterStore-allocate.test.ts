@@ -25,6 +25,7 @@ function makeChar(overrides: Partial<Character> = {}): Character {
     lastActionTime: '',
     recentHistory: [],
     level: 1, exp: 0, expToNext: 100, unspentAttributePoints: 3,
+    unspentSkillPoints: 0,
     classId: null, classSkills: [],
     elementalResistances: { ...ZERO_RESISTANCES },
     learnedAbilities: [],

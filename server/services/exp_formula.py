@@ -1,6 +1,7 @@
-"""v0.5.1 — 服务端等级-经验公式 (与客户端 client/src/services/level/expFormula.ts 镜像).
+"""v0.5.1+ — 服务端等级-经验公式 (与客户端 client/src/services/level/expFormula.ts 镜像).
 
 服务端权威: PATCH /exp 走这里重算 level/exp, 客户端 grantExp 仅用于本地 UI 响应.
+v0.6.4b: 升级时同时累加 unspentAttributePoints 和 unspentSkillPoints (在 character_router.py 中处理).
 """
 MAX_LEVEL = 20
 
