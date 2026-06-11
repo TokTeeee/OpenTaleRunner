@@ -62,7 +62,7 @@ import { EVENTS } from '../event/events';
 import type { Ability } from '../../types/ability';
 import { getAbility } from '../../data/abilities';
 import { applySpecial, applyResistance, parseDiceFormula } from '../abilities/abilityUtils';
-import { ELEMENT_LABELS } from '../../types/ability';
+import { ELEMENT_LABELS, ELEMENT_ICONS } from '../../types/ability';
 import type { ElementalResistances } from '../../types/character';
 
 // ============================================================
@@ -195,6 +195,24 @@ export function getEquipmentMPBonus(equipped: Combatant['equipped']): number {
     }
   }
   return bonus;
+}
+
+/** 从武器 effects 提取元素附加伤害 (elemental_damage 词条). 一把武器最多1个元素词条. */
+export function getWeaponElementalDamage(
+  item: { effects?: { type: string; value?: number | string | Record<string, unknown> }[] } | null | undefined,
+): { element: keyof ElementalResistances; bonus: number } | null {
+  if (!item?.effects) return null;
+  for (const eff of item.effects) {
+    if (eff.type === 'elemental_damage' && typeof eff.value === 'object' && eff.value !== null) {
+      const v = eff.value as Record<string, unknown>;
+      for (const [element, val] of Object.entries(v)) {
+        if (typeof val === 'number' && val > 0) {
+          return { element: element as keyof ElementalResistances, bonus: val };
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /** 6 维属性修正: base + buff + equipment. spec §7.2.1. */
@@ -647,7 +665,7 @@ export class ActionResolver {
       const reduction = preResistance - postResistance;
       log.push({
         kind: 'action', round: state.round, turn: state.turn,
-        message: `  抗性: ${preResistance}×(1-${resistanceValue}/100) ${resistanceValue > 0 ? `-${reduction}` : `+${Math.abs(reduction)}`}${resistanceValue > 0 ? '(抗性减免)' : '(弱点增伤)'}=${postResistance}`,
+        message: `  ${ELEMENT_ICONS[element]} 抗性: ${preResistance}×(1-${resistanceValue}/100) ${resistanceValue > 0 ? `-${reduction}` : `+${Math.abs(reduction)}`}${resistanceValue > 0 ? '(抗性减免)' : '(弱点增伤)'}=${postResistance}`,
         timestamp: ts,
       });
     }
@@ -667,7 +685,7 @@ export class ActionResolver {
     useCombatStore.getState().applyDamage(target.id, finalDamage);
     log.push({
       kind: 'action', round: state.round, turn: state.turn,
-      message: `  ${target.name} 受到 ${finalDamage} ${element ? `${ELEMENT_LABELS[element]}` : ''}伤害 (HP ${targetHpBefore}→${targetHpBefore - finalDamage})`,
+      message: `  ${target.name} 受到 ${finalDamage} ${element ? `${ELEMENT_ICONS[element]}${ELEMENT_LABELS[element]}` : ''}伤害 (HP ${targetHpBefore}→${targetHpBefore - finalDamage})`,
       timestamp: ts,
     });
     // 附加 special log
@@ -782,19 +800,40 @@ export class ActionResolver {
       timestamp: Date.now(),
     });
 
+    // 步骤2.5: 武器元素附加伤害
+    let elementalDamage = 0;
+    let weaponElement: keyof ElementalResistances | null = null;
+    const weaponElem = getWeaponElementalDamage(attacker.equipped.weapon);
+    if (weaponElem) {
+      weaponElement = weaponElem.element;
+      const resistValue = target.elementalResistances[weaponElem.element] ?? 0;
+      elementalDamage = Math.max(0, Math.round(weaponElem.bonus * (1 - resistValue / 100)));
+      log.push({
+        kind: 'action',
+        round: state.round,
+        turn: state.turn,
+        message: `  ${ELEMENT_ICONS[weaponElem.element]} ${ELEMENT_LABELS[weaponElem.element]}属性附加: ${weaponElem.bonus}×(1-${resistValue}/100)=${elementalDamage}`,
+        data: { elementalBonus: weaponElem.bonus, element: weaponElem.element, resistValue, elementalDamage },
+        timestamp: Date.now(),
+      });
+    }
+
     // 步骤3: 实际生效
+    const totalDamage = damage.total + elementalDamage;
     const targetHpBefore = target.hp;
-    useCombatStore.getState().applyDamage(target.id, damage.total);
+    useCombatStore.getState().applyDamage(target.id, totalDamage);
+    const elementLabel = weaponElement ? ` ${ELEMENT_ICONS[weaponElement]}${ELEMENT_LABELS[weaponElement]}` : '';
     log.push({
       kind: 'action',
       round: state.round,
       turn: state.turn,
-      message: `  ${target.name} 受到 ${damage.total} 伤害 (HP ${targetHpBefore}→${targetHpBefore - damage.total})`,
+      message: `  ${target.name} 受到 ${damage.total}${elementalDamage > 0 ? `+${elementalDamage}${elementLabel}` : ''} 伤害 (HP ${targetHpBefore}→${targetHpBefore - totalDamage})`,
+      data: { physicalDamage: damage.total, elementalDamage, totalDamage, element: weaponElement },
       timestamp: Date.now(),
     });
     // v0.5.1: 广播 combat.hit 给 EXP 授权 hook
-    eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: damage.total, isCrit: qteRes.modifier > 0 });
-    if (targetHpBefore - damage.total <= 0) {
+    eventBus.emit(EVENTS.COMBAT_HIT, { attackerId: attacker.id, targetId: target.id, damage: totalDamage, isCrit: qteRes.modifier > 0 });
+    if (targetHpBefore - totalDamage <= 0) {
       // v0.5.1: 击杀广播
       eventBus.emit(EVENTS.COMBAT_KILL, { killerId: attacker.id, targetId: target.id, targetName: target.name });
     }

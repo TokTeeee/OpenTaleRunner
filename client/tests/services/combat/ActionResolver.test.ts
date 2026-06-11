@@ -27,6 +27,7 @@ import {
   _resetSharedResolver,
   getEquipmentResistances,
   getEquipmentMPBonus,
+  getWeaponElementalDamage,
 } from '../../../src/services/combat/ActionResolver';
 import { useCombatStore } from '../../../src/stores/combatStore';
 import { useItemRegistryStore } from '../../../src/stores/itemRegistryStore';
@@ -34,6 +35,7 @@ import { resetClientStores } from '../../utils/resetStores';
 import { defaultRoll } from '../../../src/services/combat/dice';
 import type { RollFn } from '../../../src/services/combat/dice';
 import type { Combatant } from '../../../src/services/combat/types';
+import { ZERO_RESISTANCES } from '../../../src/types/character';
 
 /** 构造一个 d20/d6/d100 全部返回固定值的 RollFn. */
 function makeConstRoll(values: number[]): RollFn {
@@ -58,6 +60,7 @@ function makePlayer(overrides: Partial<Combatant> = {}): Combatant {
     isDead: false,
     isFleeing: false,
     equipped: { weapon: null, armor: null, accessory: null },
+    elementalResistances: { ...ZERO_RESISTANCES },
     ...overrides,
   };
 }
@@ -76,6 +79,7 @@ function makeEnemy(id: string, overrides: Partial<Combatant> = {}): Combatant {
     isDead: false,
     isFleeing: false,
     equipped: { weapon: null, armor: null, accessory: null },
+    elementalResistances: { ...ZERO_RESISTANCES },
     ...overrides,
   };
 }
@@ -508,5 +512,125 @@ describe('v0.6.3 装备效果汇总', () => {
   it('getEquipmentMPBonus 无装备返回 0', () => {
     const equipped = { weapon: null, armor: null, accessory: null };
     expect(getEquipmentMPBonus(equipped)).toBe(0);
+  });
+});
+
+// ============================================================
+// v0.6.5 getWeaponElementalDamage
+// ============================================================
+describe('getWeaponElementalDamage', () => {
+  it('从武器 effects 提取元素附加伤害', () => {
+    const weapon = {
+      effects: [
+        { type: 'damage_bonus', value: 4 },
+        { type: 'elemental_damage', value: { fire: 3 } },
+      ],
+    };
+    const result = getWeaponElementalDamage(weapon);
+    expect(result).toEqual({ element: 'fire', bonus: 3 });
+  });
+
+  it('无 elemental_damage 词条返回 null', () => {
+    const weapon = {
+      effects: [{ type: 'damage_bonus', value: 4 }],
+    };
+    expect(getWeaponElementalDamage(weapon)).toBeNull();
+  });
+
+  it('null/undefined 武器返回 null', () => {
+    expect(getWeaponElementalDamage(null)).toBeNull();
+    expect(getWeaponElementalDamage(undefined)).toBeNull();
+  });
+
+  it('空 effects 返回 null', () => {
+    expect(getWeaponElementalDamage({ effects: [] })).toBeNull();
+  });
+});
+
+// ============================================================
+// v0.6.5 resolveAttack 元素附加伤害
+// ============================================================
+describe('resolveAttack 元素附加伤害', () => {
+  it('武器有火属性词条时, 伤害包含元素附加 (受抗性减免)', () => {
+    // 攻击者装备火焰剑 (damage_bonus+4, elemental_damage fire+5)
+    // 目标有火抗 40%
+    // 预期: 元素附加 5×(1-40/100)=3
+    const attacker = makePlayer({
+      attributes: { STR: 12, DEX: 14, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+      equipped: {
+        weapon: {
+          id: 'fire-sword',
+          name: '火焰剑',
+          slot: 'weapon' as const,
+          effects: [
+            { type: 'damage_bonus' as const, value: 4 },
+            { type: 'elemental_damage' as const, value: { fire: 5 } },
+          ],
+        },
+        armor: null,
+        accessory: null,
+      },
+    });
+    const target = makeEnemy('e1', {
+      elementalResistances: { ...ZERO_RESISTANCES, fire: 40 },
+    });
+    useCombatStore.setState({
+      combatants: { p1: attacker, e1: target },
+    });
+    const resolver = createActionResolver({ roll: makeConstRoll([15, 3]), damageScale: 0 });
+    const result = resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
+    // 日志中应有火属性附加行
+    const elemLog = result.log.find((l) => l.message.includes('火属性附加'));
+    expect(elemLog).toBeTruthy();
+    // 火附加 5 × (1-40/100) = 3
+    expect(elemLog!.message).toContain('=3');
+    // 最终伤害行应包含元素伤害
+    const dmgLog = result.log.find((l) => l.message.includes('受到') && l.message.includes('伤害'));
+    expect(dmgLog).toBeTruthy();
+  });
+
+  it('武器无元素词条时, 无元素附加伤害', () => {
+    const attacker = makePlayer({
+      attributes: { STR: 12, DEX: 14, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+      equipped: { weapon: makeWeapon(3), armor: null, accessory: null },
+    });
+    const target = makeEnemy('e1');
+    useCombatStore.setState({
+      combatants: { p1: attacker, e1: target },
+    });
+    const resolver = createActionResolver({ roll: makeConstRoll([15, 3]), damageScale: 0 });
+    const result = resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
+    const elemLog = result.log.find((l) => l.message.includes('属性附加'));
+    expect(elemLog).toBeUndefined();
+  });
+
+  it('目标无抗性时, 元素附加全额', () => {
+    const attacker = makePlayer({
+      attributes: { STR: 12, DEX: 14, CON: 10, INT: 10, WIS: 10, CHA: 10 },
+      equipped: {
+        weapon: {
+          id: 'ice-sword',
+          name: '冰霜剑',
+          slot: 'weapon' as const,
+          effects: [
+            { type: 'damage_bonus' as const, value: 4 },
+            { type: 'elemental_damage' as const, value: { ice: 5 } },
+          ],
+        },
+        armor: null,
+        accessory: null,
+      },
+    });
+    const target = makeEnemy('e1');
+    // 目标无冰抗 (默认全0)
+    useCombatStore.setState({
+      combatants: { p1: attacker, e1: target },
+    });
+    const resolver = createActionResolver({ roll: makeConstRoll([15, 3]), damageScale: 0 });
+    const result = resolver.resolve({ kind: 'attack', attackerId: 'p1', targetId: 'e1' }, useCombatStore.getState());
+    const elemLog = result.log.find((l) => l.message.includes('冰属性附加'));
+    expect(elemLog).toBeTruthy();
+    // 5 × (1-0/100) = 5
+    expect(elemLog!.message).toContain('=5');
   });
 });
