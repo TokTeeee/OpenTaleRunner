@@ -1,5 +1,57 @@
 # Changelog
 
+## v0.6.5 — 2026-06-11 (元素伤害接入战斗 + 属性架构统一 + 判定修正)
+
+v0.6.4/4b 属性分配与技能点系统上线后，接入元素伤害实际计算，修复属性双重计算架构问题，修正判定系统 sceneModifier 读取。
+
+### What's in this release
+
+**v0.6.5 — 元素伤害接入战斗**
+- `getWeaponElementalDamage(equipped)` — 从武器 effects 提取 `elemental_damage` 字段 (如 `{ fire: 5 }`)
+- `resolveAttack` 新增步骤 2.5: 武器元素附加伤害 (受目标抗性减免 `damage * (1 - resistance/200)`)
+- `ELEMENT_ICONS` — 8 元素 icon 映射 (🔥❄️⚡🌪️⛰️🔮✨🌑)，战斗日志元素信息前加 icon
+- 击杀判定改用 `totalDamage` (物理 + 元素)
+- DebugModeModal: 4 种元素武器模板 (火焰/冰霜/雷鸣/暗影剑)，生成后自动装备
+- 控制台 `debugLevelUp()` 命令 — 浏览器控制台输入升一级 (属性点+1, 技能点+1)
+
+**v0.6.4b — 技能点系统**
+- `Character` 新增 `unspentSkillPoints: number`，升级时 +1
+- `learnAbilityWithPoint(abilityId)` — 消耗技能点学习能力，校验 `checkCanLearn`
+- `ClassSkillTreeModal` TAB 切换天赋/技能，技能 TAB 展示可学 Ability + 学习按钮
+- 服务端 `PATCH /exp` 返回追加 `unspentSkillPoints`，迁移脚本补默认值 0
+
+**v0.6.4 — 升级属性分配**
+- `allocateAttribute(attr, delta)` — 校验 + 累加 + 钳制 [1, 20]
+- 属性行内 +1/-1 预览 + 确认/重置操作栏
+- `LevelBar` 显示未分配属性点/技能点提示
+
+**v0.6.6 — 属性架构统一 (纯计算模式)**
+- **移除 `applyItemEffects`** — 装备属性加成不再直接修改 `character.attributes`
+- `character.attributes` 只存纯基础值，装备/天赋加成通过纯计算实时获取
+- `computeAttributeBreakdowns(character)` — 返回 `{ base, equipment, classTalent, total }` 分解
+- `CharacterPanel` 属性显示 `base+bonus` 格式，hover tooltip 显示贡献来源 (装备/天赋)
+- `setCharacter` 加载时自动修正旧数据 (从 attributes 中减去已装备 attribute_mod)
+- 面板抗性改为 `getEquipmentResistances` 纯计算 (不再依赖 applyItemEffects)
+- `applyAttributes` 钳制范围从 [3, 18] 更新为 [1, 20]
+
+**判定修正**
+- `JudgmentSystem.evaluate()` 从 `useGameStore.getState().sceneModifier` 读取真实场景修正，替代硬编码 `0`
+
+**测试 +28 (5 文件)**
+- `ActionResolver.test.ts` +7 — 元素伤害 (武器元素附加/抗性减免/击杀判定)
+- `classEffects.test.ts` +5 — `computeAttributeBreakdowns` (装备/天赋/混合)
+- `characterStore-migration.test.ts` +4 — 旧数据迁移 (属性减去装备加成)
+- `JudgmentSystem.test.ts` +11 — sceneModifier 读取 + calculateDiceResult 确定性验证
+- 30 个测试文件 `makeChar` 补全 `unspentSkillPoints: 0`
+
+### Validation
+
+- 119 files / 1218 tests pass
+- typecheck 0 errors
+- lint 0 errors
+
+---
+
 ## v0.6.2 — 2026-06-08 (能力系统与战斗接入)
 
 v0.6.1 Spell/Prayer 双类型重构为统一 `Ability` (school: magic/prayer/battle_art), 并完整接入战斗循环.
