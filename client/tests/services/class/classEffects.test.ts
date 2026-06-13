@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { aggregateClassEffects, EMPTY_CLASS_BONUS } from '../../../src/services/class/classEffects';
+import { aggregateClassEffects, computeAttributeBreakdowns, EMPTY_CLASS_BONUS } from '../../../src/services/class/classEffects';
 import type { Character, Attributes } from '../../../src/types/character';
 import type { ClassSkillNode } from '../../../src/types/character';
+import type { Item } from '../../../src/types/item';
 
 const BASE_ATTRS: Attributes = { STR: 10, DEX: 10, CON: 10, INT: 10, WIS: 10, CHA: 10 };
 
-function makeChar(classId: string | null, classSkills: ClassSkillNode[]): Character {
+function makeChar(classId: string | null, classSkills: ClassSkillNode[], overrides?: Partial<Character>): Character {
   return {
     characterId: 'c1', playerId: 'p1', name: 'Test', race: 'human', background: '', appearance: '',
     attributes: BASE_ATTRS, skills: [],
@@ -18,7 +19,12 @@ function makeChar(classId: string | null, classSkills: ClassSkillNode[]): Charac
     level: 1, exp: 0, expToNext: 100, unspentAttributePoints: 0,
     unspentSkillPoints: 0,
     classId, classSkills,
-  };
+    mp: 10, maxMp: 10,
+    elementalResistances: { fire: 0, ice: 0, lightning: 0, wind: 0, earth: 0, arcane: 0, holy: 0, shadow: 0 },
+    learnedAbilities: [],
+    defaultLearnedAbilities: [],
+    ...overrides,
+  } as Character;
 }
 
 describe('aggregateClassEffects', () => {
@@ -75,5 +81,90 @@ describe('aggregateClassEffects', () => {
   it('cross-class node: defensive skip (returns no bonus from it)', () => {
     const c = makeChar('warrior', [{ classId: 'warrior', nodeId: 'mage_t1_1', unlockedAt: 1 }]);
     expect(aggregateClassEffects(c)).toEqual(EMPTY_CLASS_BONUS);
+  });
+});
+
+describe('computeAttributeBreakdowns', () => {
+  const staffWithINT: Item = {
+    name: '精良法杖',
+    category: 'weapon',
+    subCategory: 'staff',
+    quality: '精良',
+    effects: [
+      { id: 'e1', type: 'attribute_mod', value: { INT: 2 }, description: 'INT +2' },
+      { id: 'e2', type: 'mp_bonus', value: 5, description: 'MP +5' },
+    ],
+  };
+
+  const armorWithSTR: Item = {
+    name: '力量甲',
+    category: 'armor',
+    quality: '稀有',
+    effects: [
+      { id: 'e3', type: 'attribute_mod', value: { STR: 3 }, description: 'STR +3' },
+    ],
+  };
+
+  it('no equipment no class: base = total, equipment = 0, classTalent = 0', () => {
+    const c = makeChar(null, []);
+    const bd = computeAttributeBreakdowns(c);
+    expect(bd.STR.base).toBe(10);
+    expect(bd.STR.equipment).toBe(0);
+    expect(bd.STR.classTalent).toBe(0);
+    expect(bd.STR.total).toBe(10);
+    expect(bd.INT.total).toBe(10);
+  });
+
+  it('weapon with INT+2: equipment.INT = 2, total.INT = 12', () => {
+    const c = makeChar(null, [], {
+      inventory: {
+        items: [],
+        equipped: { weapon: staffWithINT, armor: null, accessory: null },
+        currency: { gold: 0, silver: 0, copper: 0 },
+      },
+    });
+    const bd = computeAttributeBreakdowns(c);
+    expect(bd.INT.base).toBe(10);
+    expect(bd.INT.equipment).toBe(2);
+    expect(bd.INT.classTalent).toBe(0);
+    expect(bd.INT.total).toBe(12);
+    expect(bd.STR.equipment).toBe(0);
+    expect(bd.STR.total).toBe(10);
+  });
+
+  it('warrior with STR+1 talent: classTalent.STR = 1, total.STR = 11', () => {
+    const c = makeChar('warrior', [{ classId: 'warrior', nodeId: 'warrior_t1_1', unlockedAt: 1 }]);
+    const bd = computeAttributeBreakdowns(c);
+    expect(bd.STR.base).toBe(10);
+    expect(bd.STR.equipment).toBe(0);
+    expect(bd.STR.classTalent).toBe(1);
+    expect(bd.STR.total).toBe(11);
+  });
+
+  it('equipment + classTalent combined: INT base=10, equip+2, talent+1, total=13', () => {
+    const c = makeChar('mage', [{ classId: 'mage', nodeId: 'mage_t1_1', unlockedAt: 1 }], {
+      inventory: {
+        items: [],
+        equipped: { weapon: staffWithINT, armor: null, accessory: null },
+        currency: { gold: 0, silver: 0, copper: 0 },
+      },
+    });
+    const bd = computeAttributeBreakdowns(c);
+    expect(bd.INT.equipment).toBe(2);
+    expect(bd.INT.classTalent).toBe(1);
+    expect(bd.INT.total).toBe(13);
+  });
+
+  it('multiple equipment pieces: STR base=10, armor+3, total=13', () => {
+    const c = makeChar(null, [], {
+      inventory: {
+        items: [],
+        equipped: { weapon: null, armor: armorWithSTR, accessory: null },
+        currency: { gold: 0, silver: 0, copper: 0 },
+      },
+    });
+    const bd = computeAttributeBreakdowns(c);
+    expect(bd.STR.equipment).toBe(3);
+    expect(bd.STR.total).toBe(13);
   });
 });

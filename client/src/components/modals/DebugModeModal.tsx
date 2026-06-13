@@ -204,19 +204,11 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
     const char = useCharacterStore.getState().character;
     if (char) {
       const slot = template.category as 'weapon' | 'armor' | 'accessory';
-      const oldEquipped = char.inventory.equipped[slot];
-      // 卸下旧装备的属性效果
-      if (oldEquipped) {
-        useCharacterStore.getState().applyItemEffects(oldEquipped, false);
-      }
-      // 装备新物品
       const newInv = {
         ...char.inventory,
         equipped: { ...char.inventory.equipped, [slot]: item },
       };
       useCharacterStore.getState().updateInventory(newInv);
-      // 应用新装备的属性效果
-      useCharacterStore.getState().applyItemEffects(item, true);
       showToast(`已装备: ${item.name} → ${slot === 'weapon' ? '武器' : slot === 'armor' ? '护甲' : '饰品'}`, 'info');
     }
   }, [showToast]);

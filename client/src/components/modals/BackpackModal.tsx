@@ -18,7 +18,6 @@ export function BackpackModal({ onClose }: Props) {
   const character = useCharacterStore((s) => s.character);
   const updateInventory = useCharacterStore((s) => s.updateInventory);
   const updateHP = useCharacterStore((s) => s.updateHP);
-  const applyItemEffects = useCharacterStore((s) => s.applyItemEffects);
   const { submitCustom } = usePMEngine();
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [hoveredItem, setHoveredItem] = useState<Item | null>(null);
@@ -104,11 +103,9 @@ export function BackpackModal({ onClose }: Props) {
     setTimeout(() => submitCustom(`[丢弃了${item.name}]`), 100);
   };
 
-  /** 装备物品: 应用新物品的 attribute_mod 词条, 撤销旧物品的 */
+  /** 装备物品: 更新装备槽位, 属性加成通过纯计算体现 */
   const equipItem = (item: Item, slot: EquipSlot) => {
     const current = equipped[slot];
-    if (current) applyItemEffects(current, false);
-    applyItemEffects(item, true);
 
     const newBackpack = backpack.filter((b) => (b.itemId || b.name) !== (item.itemId || item.name));
     if (current) {
@@ -122,11 +119,10 @@ export function BackpackModal({ onClose }: Props) {
     setSelectedItem(null);
   };
 
-  /** 卸下装备: 撤销词条 + 移回背包 */
+  /** 卸下装备: 移回背包 */
   const unequipItem = (slot: EquipSlot) => {
     const current = equipped[slot];
     if (!current) return;
-    applyItemEffects(current, false);
     const newEquipped = { ...equipped, [slot]: null };
     const newBackpack = [...backpack, { ...current, equipped: false, equipSlot: undefined }];
     updateInventory({ ...character.inventory, equipped: newEquipped, backpack: newBackpack });

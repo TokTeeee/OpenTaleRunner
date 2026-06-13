@@ -55,8 +55,6 @@ interface CharacterState {
   updateInventory: (inv: Inventory) => void;
   updateCurrency: (c: Partial<Currency>) => void;
   updateIdentity: (changes: { name?: string; appearance?: string; background?: string }) => void;
-  /** 应用/反应用 物品的 attribute_mod 词条, true=装备, false=卸下 */
-  applyItemEffects: (item: Item, apply: boolean) => void;
   /** v0.5.1 — 用服务端返回值应用 EXP 授权 (Pydantic 返回 { level, exp, expToNext, unspentAttributePoints }) */
   applyServerExpGrant: (patch: { level: number; exp: number; expToNext: number; unspentAttributePoints: number; unspentSkillPoints: number }) => void;
   /** v0.5.3 — 设置角色职业与已解锁技能 (本地 + 调用方负责 PATCH /class 同步服务端) */
@@ -77,7 +75,27 @@ interface CharacterState {
 export const useCharacterStore = create<CharacterState>((set) => ({
   character: null, isLoaded: false,
 
-  setCharacter: (char) => set({ character: char, isLoaded: true }),
+  setCharacter: (char) => {
+    // v0.6.6: 迁移 — 从 attributes 中减去已装备物品的 attribute_mod，还原纯基础值
+    // 旧版 applyItemEffects 会把装备加成揉进 attributes，需要一次性修正
+    const correctedAttrs = { ...char.attributes };
+    const slots = [char.inventory.equipped.weapon, char.inventory.equipped.armor, char.inventory.equipped.accessory];
+    for (const item of slots) {
+      if (!item?.effects) continue;
+      for (const eff of item.effects) {
+        if (eff.type === 'attribute_mod' && typeof eff.value === 'object' && eff.value !== null) {
+          const mods = eff.value as Record<string, unknown>;
+          for (const key of Object.keys(correctedAttrs) as (keyof Attributes)[]) {
+            const delta = mods[key];
+            if (typeof delta === 'number') {
+              correctedAttrs[key] = correctedAttrs[key] - delta;
+            }
+          }
+        }
+      }
+    }
+    set({ character: { ...char, attributes: correctedAttrs }, isLoaded: true });
+  },
 
   updateAttributes: (attrs) =>
     set((s) => {
@@ -181,31 +199,6 @@ export const useCharacterStore = create<CharacterState>((set) => ({
       if (!s.character) return s;
       return { character: { ...s.character, ...changes } };
     }),
-
-  /**
-   * 应用/反应用 物品的 attribute_mod 词条
-   * apply = true 时累加, false 时反向(用于卸下时撤销)
-   * 词条数据格式: eff.value = { STR: 1, DEX: 2, ... }
-   */
-  applyItemEffects: (item, apply) => {
-    set((s) => {
-      if (!s.character || !item?.effects) return s;
-      const attrs = { ...s.character.attributes };
-      for (const eff of item.effects) {
-        if (eff.type !== 'attribute_mod') continue;
-        // attribute_mod 词条格式: value = { STR: 1, DEX: 2, ... }
-        if (typeof eff.value !== 'object' || eff.value == null) continue;
-        const mods = eff.value as Record<string, unknown>;
-        for (const key of Object.keys(attrs) as (keyof Attributes)[]) {
-          const delta = mods[key];
-          if (typeof delta === 'number') {
-            attrs[key] = attrs[key] + (apply ? delta : -delta);
-          }
-        }
-      }
-      return { character: { ...s.character, attributes: attrs } };
-    });
-  },
 
   // -------------------------------------------------------------------------
   // v0.5.1 — Level-EXP patch application (server is authoritative)
