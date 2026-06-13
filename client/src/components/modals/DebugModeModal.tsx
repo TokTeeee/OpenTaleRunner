@@ -19,6 +19,7 @@ import { useGameStore } from '../../stores/gameStore';
 import { drawAffixes } from '../../data/affixPool';
 import type { Item, ItemEffect } from '../../types/item';
 import { useUIStore } from '../../stores/uiStore';
+import { useCharacterStore } from '../../stores/characterStore';
 
 export interface DebugModeModalProps {
   open: boolean;
@@ -59,6 +60,11 @@ const ITEM_TEMPLATES: readonly ItemTemplate[] = [
   { id: 'staff', label: '生成法杖', icon: '🪄', description: '精良法杖, 含 INT/MP 词条 + 池词条', category: 'weapon', subCategory: 'staff', quality: '精良', baseName: '随机法杖' },
   { id: 'holy_symbol', label: '生成圣印记', icon: '✝️', description: '精良圣印记, 含 WIS/MP 词条 + 池词条', category: 'weapon', subCategory: 'holy_symbol', quality: '精良', baseName: '随机圣印记' },
   { id: 'sword', label: '生成剑', icon: '⚔️', description: '精良剑, 含攻击词条 + 池词条', category: 'weapon', quality: '精良', baseName: '随机长剑' },
+  // v0.6.5: 元素武器 — 含 elemental_damage 词条, 装备后自动接入战斗伤害
+  { id: 'sword_fire', label: '火焰剑', icon: '🔥', description: '稀有火焰剑, 攻击+5 + 火属性附加5', category: 'weapon', quality: '稀有', baseName: '火焰长剑' },
+  { id: 'sword_ice', label: '冰霜剑', icon: '❄️', description: '稀有冰霜剑, 攻击+5 + 冰属性附加5', category: 'weapon', quality: '稀有', baseName: '冰霜长剑' },
+  { id: 'sword_lightning', label: '雷鸣剑', icon: '⚡', description: '稀有雷鸣剑, 攻击+5 + 雷属性附加5', category: 'weapon', quality: '稀有', baseName: '雷鸣长剑' },
+  { id: 'sword_shadow', label: '暗影剑', icon: '🌑', description: '稀有暗影剑, 攻击+5 + 暗属性附加5', category: 'weapon', quality: '稀有', baseName: '暗影长剑' },
   { id: 'armor_fire', label: '生成火抗甲', icon: '🔥', description: '稀有火抗皮甲, 火抗+40 + 池词条', category: 'armor', quality: '稀有', baseName: '火抗皮甲' },
   { id: 'armor_ice', label: '生成冰抗甲', icon: '❄️', description: '稀有冰抗皮甲, 冰抗+40 + 池词条', category: 'armor', quality: '稀有', baseName: '冰抗皮甲' },
   { id: 'armor_all', label: '生成全抗甲', icon: '🛡️', description: '史诗全抗板甲, 全抗+10 + 池词条', category: 'armor', quality: '史诗', baseName: '全抗板甲' },
@@ -151,6 +157,18 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
       baseEffects.push({ id: `base_mp_${now}`, type: 'mp_bonus', value: 5, description: 'MP +5' });
     } else if (template.id === 'sword') {
       baseEffects.push({ id: `base_${now}`, type: 'damage_bonus', value: 5, description: '+5 攻击' });
+    } else if (template.id === 'sword_fire') {
+      baseEffects.push({ id: `base_${now}`, type: 'damage_bonus', value: 5, description: '+5 攻击' });
+      baseEffects.push({ id: `base_elem_${now}`, type: 'elemental_damage', value: { fire: 5 }, description: '🔥 火属性附加 +5' });
+    } else if (template.id === 'sword_ice') {
+      baseEffects.push({ id: `base_${now}`, type: 'damage_bonus', value: 5, description: '+5 攻击' });
+      baseEffects.push({ id: `base_elem_${now}`, type: 'elemental_damage', value: { ice: 5 }, description: '❄️ 冰属性附加 +5' });
+    } else if (template.id === 'sword_lightning') {
+      baseEffects.push({ id: `base_${now}`, type: 'damage_bonus', value: 5, description: '+5 攻击' });
+      baseEffects.push({ id: `base_elem_${now}`, type: 'elemental_damage', value: { lightning: 5 }, description: '⚡ 雷属性附加 +5' });
+    } else if (template.id === 'sword_shadow') {
+      baseEffects.push({ id: `base_${now}`, type: 'damage_bonus', value: 5, description: '+5 攻击' });
+      baseEffects.push({ id: `base_elem_${now}`, type: 'elemental_damage', value: { shadow: 5 }, description: '🌑 暗属性附加 +5' });
     } else if (template.id === 'armor_fire') {
       baseEffects.push({ id: `base_${now}`, type: 'elemental_resist', value: { fire: 40 }, description: '火抗 +40%' });
       baseEffects.push({ id: `base_def_${now}`, type: 'defense_bonus', value: 3, description: '+3 防御' });
@@ -181,6 +199,26 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
 
     setGeneratedItem(item);
     showToast(`已生成: ${item.name} (${item.quality}, ${allEffects.length} 个词条)`, 'info');
+
+    // 自动装备到角色
+    const char = useCharacterStore.getState().character;
+    if (char) {
+      const slot = template.category as 'weapon' | 'armor' | 'accessory';
+      const oldEquipped = char.inventory.equipped[slot];
+      // 卸下旧装备的属性效果
+      if (oldEquipped) {
+        useCharacterStore.getState().applyItemEffects(oldEquipped, false);
+      }
+      // 装备新物品
+      const newInv = {
+        ...char.inventory,
+        equipped: { ...char.inventory.equipped, [slot]: item },
+      };
+      useCharacterStore.getState().updateInventory(newInv);
+      // 应用新装备的属性效果
+      useCharacterStore.getState().applyItemEffects(item, true);
+      showToast(`已装备: ${item.name} → ${slot === 'weapon' ? '武器' : slot === 'armor' ? '护甲' : '饰品'}`, 'info');
+    }
   }, [showToast]);
 
   if (!internalShow) return null;

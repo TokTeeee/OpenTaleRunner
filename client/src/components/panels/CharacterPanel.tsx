@@ -7,6 +7,7 @@ import { SkillsSection } from './CharacterPanel/SkillsSection';
 import { ResistanceDisplay } from './CharacterPanel/ResistanceDisplay';
 import { ClassSkillTreeModal } from './CharacterPanel/ClassSkillTreeModal';
 import { getClass } from '../../data/classes';  // v0.5.14 (用于头部职业名)
+import { computeAttributeBreakdowns, type AttributeBreakdown } from '../../services/class/classEffects';
 
 const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤️', INT: '🧠', WIS: '👁', CHA: '👑' };
 
@@ -18,10 +19,12 @@ export function CharacterPanel() {
 
   const attrs = character.attributes;
   const unspentPoints = character.unspentAttributePoints ?? 0;
+  const unspentSkillPts = character.unspentSkillPoints ?? 0;
   const pendingTotal = Object.values(pending).reduce((s, v) => s + v, 0);
   const remaining = unspentPoints - pendingTotal;
   const hpPct = (character.hp / character.maxHp) * 100;
   const classDef = character.classId ? getClass(character.classId) : null;  // v0.5.14
+  const breakdowns = computeAttributeBreakdowns(character);
 
   return (
     <div className="p-3 space-y-3 animate-in overflow-y-auto" style={{ maxHeight: 'calc(100vh - 120px)' }}>
@@ -65,7 +68,7 @@ export function CharacterPanel() {
       <LevelBar character={character} />
 
       {/* Attribute Radar Chart */}
-      <AttributeRadar attributes={attrs} />
+      <AttributeRadar breakdowns={breakdowns} />
 
       {/* Vital Stats */}
       {character.vital && (
@@ -116,20 +119,34 @@ export function CharacterPanel() {
       </div>
       )}
 
-      {/* Attributes (v0.6.4: 分配模式 +1/-1) */}
+      {/* Attributes (v0.6.4: 分配模式 +1/-1; v0.6.5: base+bonus 分解 + tooltip) */}
       <div className="mt-1.5">
+        <div className="flex items-center justify-between mb-1">
+          <div className="text-[10px] text-gray-600 uppercase tracking-wider">属性</div>
+          {unspentSkillPts > 0 && (
+            <div className="text-[10px] text-purple-300/80">
+              🔮 {unspentSkillPts} 技能点
+            </div>
+          )}
+        </div>
         <div className="grid grid-cols-2 gap-1" data-testid="attribute-grid">
-          {Object.entries(attrs).map(([k, v]) => {
+          {Object.entries(attrs).map(([k, _]) => {
             const key = k as keyof Attributes;
+            const bd = breakdowns[key];
             const pendingDelta = pending[key] ?? 0;
             const isPending = pendingDelta > 0;
+            const totalBonus = bd.equipment + bd.classTalent;
+            const hasBonus = totalBonus > 0;
             return (
-              <div key={k} className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px]">
+              <div key={k} className="flex items-center gap-1.5 bg-white/5 px-2 py-1 rounded text-[10px] group relative">
                 <span className="w-4 text-center">{ATTR_ICONS[k] || '●'}</span>
                 <span className="text-gray-400 w-8">{ATTRIBUTE_LABELS[key]}</span>
                 <span className={`font-mono ml-auto font-semibold ${isPending ? 'text-yellow-300' : 'text-gray-200'}`}>
-                  {v + pendingDelta}
+                  {isPending ? bd.total + pendingDelta : bd.total}
                 </span>
+                {hasBonus && !isPending && (
+                  <span className="text-[9px] text-cyan-400/70 font-mono">+{totalBonus}</span>
+                )}
                 {unspentPoints > 0 && (
                   <>
                     {isPending && (
@@ -155,6 +172,19 @@ export function CharacterPanel() {
                       +
                     </button>
                   </>
+                )}
+                {/* Hover tooltip: 属性贡献来源 */}
+                {hasBonus && (
+                  <div className="absolute left-0 top-full mt-1 z-30 hidden group-hover:block bg-zinc-800 border border-zinc-600 rounded px-2 py-1.5 text-[9px] space-y-0.5 min-w-[100px] shadow-lg pointer-events-none">
+                    <div className="text-gray-400">基础: <span className="text-gray-200 font-mono">{bd.base}</span></div>
+                    {bd.equipment > 0 && (
+                      <div className="text-cyan-400/80">装备: +<span className="font-mono">{bd.equipment}</span></div>
+                    )}
+                    {bd.classTalent > 0 && (
+                      <div className="text-amber-400/80">天赋: +<span className="font-mono">{bd.classTalent}</span></div>
+                    )}
+                    <div className="border-t border-zinc-600 pt-0.5 text-gray-200">合计: <span className="font-mono font-semibold">{bd.total}</span></div>
+                  </div>
                 )}
               </div>
             );
@@ -343,7 +373,7 @@ function ReputationSection({ rep }: { rep: Reputation }) {
   );
 }
 
-function AttributeRadar({ attributes }: { attributes: Attributes }) {
+function AttributeRadar({ breakdowns }: { breakdowns: Record<keyof Attributes, AttributeBreakdown> }) {
   const RADIUS = 32;   // v0.5.14: 55 → 32 (适配 140×100 紧凑布局)
   const CX = 70;       // 居中
   const CY = 50;       // 居中
@@ -356,7 +386,7 @@ function AttributeRadar({ attributes }: { attributes: Attributes }) {
 
   const points = ATTRS.map((attr, i) => {
     const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
-    const val = attributes[attr];
+    const val = breakdowns[attr].total;
     const r = (val / MAX) * RADIUS;
     return { x: CX + r * Math.cos(angle), y: CY + r * Math.sin(angle), attr, val, angle };
   });
