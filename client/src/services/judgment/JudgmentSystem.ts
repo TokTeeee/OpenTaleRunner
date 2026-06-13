@@ -181,7 +181,7 @@ export class JudgmentSystem {
       attributeValue,
       skillLevel,
       effectResult.totalEquipmentBonus + hookBonus + totalPartyBonus,
-      0,
+      useGameStore.getState().sceneModifier,
       params.difficultyLC,
       conditionsPenalty + hookPenalty,
       nightPenalty,
