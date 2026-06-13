@@ -32,6 +32,7 @@ interface MapState {
   updatePlayerPosition: (pos: { regionId?: string; locationId?: string; locationPos?: { x: number; y: number } }) => void;
   loadWorldMap: (worldMapId: string) => Promise<void>;
   generateAndSaveWorldMap: (data: WorldMapData) => Promise<void>;
+  updateCurrentRegion: (region: RegionRef) => void;
   resetMapData: () => Promise<void>;
 }
 
@@ -107,6 +108,16 @@ export const useMapStore = create<MapState>()((set, get) => ({
   generateAndSaveWorldMap: async (data) => {
     await mapStorage.saveWorldMap(data);
     set({ worldMap: data, currentWorldMapId: data.id });
+  },
+
+  updateCurrentRegion: (region) => {
+    const { worldMap } = get();
+    if (worldMap) {
+      const regions = worldMap.regions.map(r => r.id === region.id ? region : r);
+      set({ currentRegion: region, worldMap: { ...worldMap, regions } });
+    } else {
+      set({ currentRegion: region });
+    }
   },
 
   resetMapData: async () => {
