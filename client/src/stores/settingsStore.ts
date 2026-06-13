@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { LLMProviderType } from '../types/llm';
+import type { MapImageGenConfig, MapImageSize } from '../types/map';
 import { createSecureStorage } from '../services/crypto/CryptoService';
 import {
   DEFAULT_DEEPSEEK_CHAT_ENDPOINT,
@@ -109,6 +110,8 @@ interface SettingsState {
   npcIndependentVoice: boolean;
   imageGen: ImageGenConfig;
   imageGenEnabled: boolean;
+  mapImageGen: MapImageGenConfig;
+  setMapImageGenConfig: (c: Partial<MapImageGenConfig>) => void;
   debug: DebugSettings;
   setLLMConfig: (c: Partial<LLMConfig>) => void;
   setAutoPlayLLMConfig: (c: Partial<LLMConfig>) => void;
@@ -203,6 +206,8 @@ export const useSettingsStore = create<SettingsState>()(
       setNPCIndependentVoice: (v) => set({ npcIndependentVoice: v }),
       imageGen: { provider: 'openai', apiKey: '', endpoint: DEFAULT_OPENAI_IMAGE_ENDPOINT, model: DEFAULT_OPENAI_IMAGE_MODEL, size: '1024x1024', quality: 'standard' },
       imageGenEnabled: false,
+      mapImageGen: { apiEndpoint: '', apiKey: '', imageSize: '512x512' as MapImageSize },
+      setMapImageGenConfig: (c) => set((s) => ({ mapImageGen: { ...s.mapImageGen, ...c } })),
       debug: { enabled: false, logLevel: 'info', categories: ['SYSTEM', 'ERROR'], persistToIndexedDB: false },
       setImageGenConfig: (c) => set((s) => ({ imageGen: { ...s.imageGen, ...c } })),
       setImageGenEnabled: (v) => set({ imageGenEnabled: v }),
@@ -273,6 +278,7 @@ export const useSettingsStore = create<SettingsState>()(
         npcIndependentVoice: s.npcIndependentVoice,
         imageGen: s.imageGen,
         imageGenEnabled: s.imageGenEnabled,
+        mapImageGen: s.mapImageGen,
         debug: s.debug,
         // v0.4 战斗系统 QTE 持久化
         qte: s.qte,
