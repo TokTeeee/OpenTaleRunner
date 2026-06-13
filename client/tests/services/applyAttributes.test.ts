@@ -44,9 +44,9 @@ describe('applyAttributes (v0.5.13 业务域 1)', () => {
     expect(char?.attributes.DEX).toBe(9);
   });
 
-  it('clamps attribute to 3..18', () => {
+  it('clamps attribute to 1..20', () => {
     applyAttributes({ attributeChanges: { STR: 100 }, identityChanges: undefined });
-    expect(useCharacterStore.getState().character?.attributes.STR).toBe(18);
+    expect(useCharacterStore.getState().character?.attributes.STR).toBe(20);
   });
 
   it('applies identity changes', () => {

@@ -8,6 +8,7 @@ import { ResistanceDisplay } from './CharacterPanel/ResistanceDisplay';
 import { ClassSkillTreeModal } from './CharacterPanel/ClassSkillTreeModal';
 import { getClass } from '../../data/classes';  // v0.5.14 (用于头部职业名)
 import { computeAttributeBreakdowns, type AttributeBreakdown } from '../../services/class/classEffects';
+import { getEquipmentResistances } from '../../services/combat/ActionResolver';
 
 const ATTR_ICONS: Record<string, string> = { STR: '💪', DEX: '🏃', CON: '❤️', INT: '🧠', WIS: '👁', CHA: '👑' };
 
@@ -217,10 +218,17 @@ export function CharacterPanel() {
       {/* v0.5.14 — SkillsSection 合并 3 种 chip (origin蓝/learned绿/available黄) */}
       <SkillsSection />
 
-      {/* v0.6.2 — 8 元素抗性 (always render, even all-zero for transparency) */}
+      {/* v0.6.2 — 8 元素抗性 (base + equipment, 纯计算) */}
       <div data-testid="panel-resistances">
         <div className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">抗性</div>
-        <ResistanceDisplay resistances={character.elementalResistances} />
+        <ResistanceDisplay resistances={{
+          ...character.elementalResistances,
+          ...Object.fromEntries(
+            Object.entries(getEquipmentResistances(character.inventory.equipped)).map(
+              ([k, v]) => [k, (character.elementalResistances[k as keyof typeof character.elementalResistances] ?? 0) + v]
+            )
+          ),
+        }} />
       </div>
 
       {/* Equipment (v0.5.14: 折叠) */}

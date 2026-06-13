@@ -100,13 +100,13 @@ describe('applyConsequences', () => {
       expect(updated?.attributes.DEX).toBe(9);
     });
 
-    it('clamps attributes to range [3, 18]', () => {
-      useCharacterStore.getState().setCharacter(makeBaseCharacter({ attributes: { STR: 3, DEX: 3, CON: 10, INT: 10, WIS: 10, CHA: 10 } }));
+    it('clamps attributes to range [1, 20]', () => {
+      useCharacterStore.getState().setCharacter(makeBaseCharacter({ attributes: { STR: 2, DEX: 2, CON: 10, INT: 10, WIS: 10, CHA: 10 } }));
       applyConsequences(makeConsequenceData({ attributeChanges: { STR: -2, DEX: 2, INT: 20 } }));
       const updated = useCharacterStore.getState().character;
-      expect(updated?.attributes.STR).toBe(3);
-      expect(updated?.attributes.DEX).toBe(5);
-      expect(updated?.attributes.INT).toBe(18);
+      expect(updated?.attributes.STR).toBe(1);
+      expect(updated?.attributes.DEX).toBe(4);
+      expect(updated?.attributes.INT).toBe(20);
     });
   });
 

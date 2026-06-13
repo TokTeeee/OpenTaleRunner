@@ -27,7 +27,7 @@ function applyAttributeChanges(changes: Partial<Record<string, number>>): void {
   for (const [key, value] of Object.entries(changes)) {
     if (value == null) continue;
     if (key in attrs && typeof value === 'number') {
-      attrs[key] = Math.max(3, Math.min(18, attrs[key] + value));
+      attrs[key] = Math.max(1, Math.min(20, attrs[key] + value));
     }
   }
   useCharacterStore.getState().updateAttributes(attrs as never);
