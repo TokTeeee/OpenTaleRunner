@@ -3,7 +3,7 @@ import { useMapStore } from '../../stores/mapStore';
 import { generateRegionMap } from '../../services/map/regionMapGenerator';
 import { renderRegionMap } from '../../services/map/tileRenderer';
 import type { Viewport } from '../../services/map/tileRenderer';
-import type { RegionRef } from '../../types/map';
+
 
 export function RegionMapView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);

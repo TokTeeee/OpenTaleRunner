@@ -20,13 +20,15 @@ import { drawAffixes } from '../../data/affixPool';
 import type { Item, ItemEffect } from '../../types/item';
 import { useUIStore } from '../../stores/uiStore';
 import { useCharacterStore } from '../../stores/characterStore';
+import { useMapStore } from '../../stores/mapStore';
+import { generateWorldMap } from '../../services/map/worldMapGenerator';
 
 export interface DebugModeModalProps {
   open: boolean;
   onClose: () => void;
 }
 
-type DebugTab = 'combat' | 'item';
+type DebugTab = 'combat' | 'item' | 'map';
 
 const DIFFICULTY_LABEL: Record<DebugBattle['difficulty'], string> = {
   trivial: 'EASY',
@@ -266,6 +268,18 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
           >
             📦 物品调试
           </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('map')}
+            data-testid="debug-tab-map"
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === 'map'
+                ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+            }`}
+          >
+            🗺️ 地图调试
+          </button>
         </div>
 
         {error && (
@@ -388,6 +402,48 @@ export function DebugModeModal({ open, onClose }: DebugModeModalProps) {
                   </div>
                 </div>
               )}
+            </div>
+          </>
+        )}
+
+        {/* 地图调试 Tab */}
+        {activeTab === 'map' && (
+          <>
+            <p className="text-sm text-zinc-500 mb-4">
+              生成或重置世界地图数据.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const data = generateWorldMap({ seed: 'debug_world' });
+                  useMapStore.getState().generateAndSaveWorldMap(data);
+                  showToast(`世界地图已生成: ${data.regions.length} 个区域`, 'info');
+                }}
+                data-testid="debug-map-generate"
+                className="text-left p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-blue-400 hover:shadow transition"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🗺️</span>
+                  <h3 className="font-semibold">生成世界地图</h3>
+                </div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">使用固定 seed 生成世界地图数据</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  useMapStore.getState().resetMapData();
+                  showToast('地图数据已重置', 'info');
+                }}
+                data-testid="debug-map-reset"
+                className="text-left p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg hover:border-red-400 hover:shadow transition"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">🔄</span>
+                  <h3 className="font-semibold">重置地图数据</h3>
+                </div>
+                <p className="text-sm text-zinc-600 dark:text-zinc-400">清除所有地图数据并恢复初始状态</p>
+              </button>
             </div>
           </>
         )}

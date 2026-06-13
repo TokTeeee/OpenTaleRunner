@@ -4,6 +4,8 @@ import './index.css'
 import App from './App.tsx'
 import { useCharacterStore } from './stores/characterStore'
 import { expToNext } from './services/level/expFormula'
+import { useMapStore } from './stores/mapStore'
+import { generateWorldMap } from './services/map/worldMapGenerator'
 
 // 调试控制台命令: 在浏览器控制台输入 debugLevelUp() 升一级
 ;(window as Record<string, unknown>).debugLevelUp = () => {
@@ -21,6 +23,18 @@ import { expToNext } from './services/level/expFormula'
     unspentSkillPoints: char.unspentSkillPoints + 1,
   })
   console.log(`[debug] 升级! Lv.${oldLevel} → Lv.${newLevel} (属性点+1, 技能点+1)`)
+}
+
+;(window as Record<string, unknown>).debugMapGenerate = () => {
+  const store = useMapStore.getState()
+  const data = generateWorldMap({ seed: `debug_${Date.now()}` })
+  store.generateAndSaveWorldMap(data)
+  console.log(`[debug] 世界地图已生成: ${data.regions.length} 个区域`)
+}
+
+;(window as Record<string, unknown>).debugMapReset = () => {
+  useMapStore.getState().resetMapData()
+  console.log('[debug] 地图数据已重置')
 }
 
 createRoot(document.getElementById('root')!).render(

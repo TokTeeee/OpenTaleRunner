@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.7.x — 地图系统
+
+### v0.7.1 基础设施
+- 新增 `types/map.ts` — 三级地图类型定义 (WorldMapData / RegionRef / LocationRef / LocationMapData)
+- 新增 `services/map/mapStorage.ts` — IndexedDB 存储层 (AeslanMaps 数据库, 4 个 object store)
+- 新增 `stores/mapStore.ts` — 地图状态管理 (视图层级 / 导航 / 玩家位置)
+- `settingsStore` 新增 `mapImageGen` 配置 (API 端点 / API KEY / 图片尺寸)
+
+### v0.7.2 世界地图
+- 新增 `services/map/tilesets.ts` — 像素8-bit瓦片颜色定义
+- 新增 `services/map/tileRenderer.ts` — Canvas 瓦片渲染引擎 (世界/区域/地点三级)
+- 新增 `services/map/worldMapGenerator.ts` — 世界地图程序化生成 (seeded PRNG + 值噪声)
+- 新增 `components/map/MapView.tsx` — 地图主容器 (TAB 切换 + 面包屑导航)
+- 新增 `components/map/WorldMapView.tsx` — 世界地图视图 (拖拽/缩放/点击区域导航)
+- 替换 `panels/WorldMap.tsx` — 重导出为 MapView
+
+### v0.7.3 区域地图
+- 新增 `services/map/regionMapGenerator.ts` — 区域地图程序化生成 (按区域类型分布地点)
+- 实现 `components/map/RegionMapView.tsx` — 区域地图视图 (地点标记/点击导航)
+- `mapStore` 新增 `updateCurrentRegion` action
+
+### v0.7.4 地点地图
+- 新增 `services/map/locationMapGenerator.ts` — 地点地图 AI 背景生成 + 结构化数据
+- 实现 `components/map/LocationMapView.tsx` — 地点地图视图 (AI 背景 + 瓦片叠加 + 点击信息)
+- 支持可配置图片生成 API (OpenAI/SD 兼容)
+
+### v0.7.5 GM 集成
+- 新增 `services/map/mapLocationSync.ts` — 地图位置同步服务
+- `useSceneFlow` 集成 `syncMapLocationFromGame` — GM 推进位置后地图自动更新
+- 支持 `LocationChange` 结构化位置变更 (region/location/building)
+
+### v0.7.6 收尾
+- DebugModeModal 新增地图调试按钮 (生成/重置)
+- 控制台命令 `window.debugMapGenerate()` / `window.debugMapReset()`
+- 1328 tests 全部通过
+
+---
+
 ## v0.6.5 — 2026-06-11 (元素伤害接入战斗 + 属性架构统一 + 判定修正)
 
 v0.6.4/4b 属性分配与技能点系统上线后，接入元素伤害实际计算，修复属性双重计算架构问题，修正判定系统 sceneModifier 读取。

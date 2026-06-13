@@ -3,7 +3,7 @@ import { useMapStore } from '../../stores/mapStore';
 import { generateLocationMap } from '../../services/map/locationMapGenerator';
 import { renderLocationOverlay } from '../../services/map/tileRenderer';
 import * as mapStorage from '../../services/map/mapStorage';
-import type { LocationMapData, MapBuilding, MapNPC, MapLandmark } from '../../types/map';
+import type { MapBuilding, MapNPC, MapLandmark } from '../../types/map';
 import { LOCATION_TYPE_COLORS, TILE_SIZE } from '../../services/map/tilesets';
 
 interface TooltipInfo {
@@ -83,7 +83,6 @@ export function LocationMapView() {
     ctx.scale(dpr, dpr);
 
     const v = viewRef.current;
-    const tileSize = TILE_SIZE * v.zoom;
 
     const draw = () => {
       ctx.clearRect(0, 0, rect.width, rect.height);
