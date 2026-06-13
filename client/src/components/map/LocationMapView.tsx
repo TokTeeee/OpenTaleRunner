@@ -18,6 +18,7 @@ export function LocationMapView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 2 });
   const dragRef = useRef(false);
+  const hasDraggedRef = useRef(false);
   const bgImageRef = useRef<HTMLImageElement | null>(null);
 
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
@@ -36,12 +37,13 @@ export function LocationMapView() {
   // Trigger generation if no data
   const handleGenerate = useCallback(async () => {
     if (!locationRef || !currentRegion) return;
-    const data = generateLocationMap({
+    const data = await generateLocationMap({
       locationRef,
       climate: currentRegion.climate,
     });
-    await mapStorage.saveLocationMap(data);
-    useMapStore.setState({ locationMap: data });
+    if (data) {
+      useMapStore.setState({ locationMap: data });
+    }
   }, [locationRef, currentRegion]);
 
   // Load background image from IndexedDB
@@ -52,17 +54,21 @@ export function LocationMapView() {
     }
 
     let cancelled = false;
+    let objectUrl = '';
     mapStorage.getLocationImage(locationMap.backgroundImageKey).then(blob => {
       if (cancelled || !blob) return;
-      const url = URL.createObjectURL(blob);
+      objectUrl = URL.createObjectURL(blob);
       const img = new Image();
       img.onload = () => {
         if (!cancelled) bgImageRef.current = img;
       };
-      img.src = url;
+      img.src = objectUrl;
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [locationMap?.backgroundImageKey]);
 
   // Draw
@@ -110,10 +116,11 @@ export function LocationMapView() {
     draw();
 
     // Mouse handlers
-    const onMouseDown = () => { dragRef.current = true; };
+    const onMouseDown = () => { dragRef.current = true; hasDraggedRef.current = false; };
     const onMouseUp = () => { dragRef.current = false; };
     const onMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
+      hasDraggedRef.current = true;
       v.offsetX += e.movementX;
       v.offsetY += e.movementY;
       setTooltip(null);
@@ -166,7 +173,7 @@ export function LocationMapView() {
     };
 
     const onClick = (e: MouseEvent) => {
-      if (dragRef.current) return;
+      if (hasDraggedRef.current) return;
       const canvasRect = canvas.getBoundingClientRect();
       const mx = e.clientX - canvasRect.left;
       const my = e.clientY - canvasRect.top;

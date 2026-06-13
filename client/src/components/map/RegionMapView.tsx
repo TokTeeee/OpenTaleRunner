@@ -10,6 +10,7 @@ export function RegionMapView() {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 1.5 });
   const dragRef = useRef(false);
+  const hasDraggedRef = useRef(false);
 
   const { currentRegion, updateCurrentRegion, navigateToLocation, navigateBack } = useMapStore();
 
@@ -58,10 +59,11 @@ export function RegionMapView() {
     draw();
 
     // Mouse handlers
-    const onMouseDown = () => { dragRef.current = true; };
+    const onMouseDown = () => { dragRef.current = true; hasDraggedRef.current = false; };
     const onMouseUp = () => { dragRef.current = false; };
     const onMouseMove = (e: MouseEvent) => {
       if (!dragRef.current) return;
+      hasDraggedRef.current = true;
       v.offsetX += e.movementX;
       v.offsetY += e.movementY;
       draw();
@@ -73,7 +75,7 @@ export function RegionMapView() {
       draw();
     };
     const onClick = (e: MouseEvent) => {
-      if (dragRef.current) return;
+      if (hasDraggedRef.current) return;
       const canvasRect = canvas.getBoundingClientRect();
       const mx = e.clientX - canvasRect.left;
       const my = e.clientY - canvasRect.top;

@@ -58,8 +58,14 @@ export function MapView() {
               {i > 0 && <span className="text-gray-600">›</span>}
               <button
                 onClick={() => {
-                  if (item.level === 'world') navigateBack();
-                  // region/location navigation handled by navigateBack
+                  if (item.level === 'world') {
+                    // Navigate all the way back to world
+                    const { viewLevel } = useMapStore.getState();
+                    if (viewLevel === 'location') navigateBack(); // location → region
+                    if (useMapStore.getState().viewLevel === 'region') navigateBack(); // region → world
+                  } else if (item.level === 'region') {
+                    if (useMapStore.getState().viewLevel === 'location') navigateBack(); // location → region
+                  }
                 }}
                 className={`${i === breadcrumb.length - 1 ? 'text-emerald-400' : 'text-gray-500 hover:text-gray-300'}`}
               >
