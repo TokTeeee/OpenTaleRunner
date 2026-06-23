@@ -19,6 +19,7 @@ export function LocationMapView() {
   const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 2 });
   const dragRef = useRef(false);
   const hasDraggedRef = useRef(false);
+  const drawRef = useRef<(() => void) | null>(null);
   const bgImageRef = useRef<HTMLImageElement | null>(null);
 
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null);
@@ -31,20 +32,18 @@ export function LocationMapView() {
     navigateBack,
   } = useMapStore();
 
-  // Find the LocationRef from currentRegion
   const locationRef = currentRegion?.locations.find(l => l.id === currentLocationId) ?? null;
 
-  // Trigger generation if no data
-  const handleGenerate = useCallback(async () => {
-    if (!locationRef || !currentRegion) return;
-    const data = await generateLocationMap({
-      locationRef,
-      climate: currentRegion.climate,
-    });
-    if (data) {
+  // Auto-generate location map if no data
+  useEffect(() => {
+    if (!currentLocationId || !locationRef || !currentRegion || locationMap) return;
+    let cancelled = false;
+    generateLocationMap(locationRef, currentRegion.climate).then(data => {
+      if (cancelled || !data) return;
       useMapStore.setState({ locationMap: data });
-    }
-  }, [locationRef, currentRegion]);
+    });
+    return () => { cancelled = true; };
+  }, [currentLocationId]); // only trigger on location id change
 
   // Load background image from IndexedDB
   useEffect(() => {
@@ -93,7 +92,6 @@ export function LocationMapView() {
     const draw = () => {
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      // Background: AI image or solid color
       const bgImg = bgImageRef.current;
       if (bgImg) {
         ctx.drawImage(bgImg, 0, 0, rect.width, rect.height);
@@ -103,19 +101,16 @@ export function LocationMapView() {
         ctx.fillRect(0, 0, rect.width, rect.height);
       }
 
-      // Apply viewport transform for overlay
       ctx.save();
       ctx.translate(v.offsetX, v.offsetY);
-
       const currentTileSize = TILE_SIZE * v.zoom;
       renderLocationOverlay(ctx, locationMap, currentTileSize);
-
       ctx.restore();
     };
 
+    drawRef.current = draw;
     draw();
 
-    // Mouse handlers
     const onMouseDown = () => { dragRef.current = true; hasDraggedRef.current = false; };
     const onMouseUp = () => { dragRef.current = false; };
     const onMouseMove = (e: MouseEvent) => {
@@ -133,7 +128,6 @@ export function LocationMapView() {
       draw();
     };
 
-    // Hit test helpers
     const hitTestBuilding = (mx: number, my: number): MapBuilding | null => {
       const ts = TILE_SIZE * v.zoom;
       for (const b of locationMap.buildings) {
@@ -141,9 +135,7 @@ export function LocationMapView() {
         const by = b.tileY * ts + v.offsetY;
         const bw = b.width * ts;
         const bh = b.height * ts;
-        if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) {
-          return b;
-        }
+        if (mx >= bx && mx <= bx + bw && my >= by && my <= by + bh) return b;
       }
       return null;
     };
@@ -178,19 +170,18 @@ export function LocationMapView() {
       const mx = e.clientX - canvasRect.left;
       const my = e.clientY - canvasRect.top;
 
-      // Priority: NPC > Landmark > Building
       const npc = hitTestNPC(mx, my);
       if (npc) {
         const loc = npc.buildingId
           ? locationMap.buildings.find(b => b.id === npc.buildingId)?.name ?? ''
           : '户外';
-        setTooltip({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top, content: npc.name, sub: loc });
+        setTooltip({ x: mx, y: my, content: npc.name, sub: loc });
         return;
       }
 
       const lm = hitTestLandmark(mx, my);
       if (lm) {
-        setTooltip({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top, content: lm.name, sub: lm.description });
+        setTooltip({ x: mx, y: my, content: lm.name, sub: lm.description });
         return;
       }
 
@@ -200,7 +191,7 @@ export function LocationMapView() {
           .map(id => locationMap.npcs.find(n => n.id === id)?.name)
           .filter(Boolean)
           .join(', ');
-        setTooltip({ x: e.clientX - canvasRect.left, y: e.clientY - canvasRect.top, content: bld.name, sub: npcNames || undefined });
+        setTooltip({ x: mx, y: my, content: bld.name, sub: npcNames || undefined });
         return;
       }
 
@@ -214,6 +205,7 @@ export function LocationMapView() {
     canvas.addEventListener('click', onClick);
 
     return () => {
+      drawRef.current = null;
       canvas.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
@@ -222,14 +214,17 @@ export function LocationMapView() {
     };
   }, [locationMap]);
 
-  // Loading state
-  if (isLoadingLocation) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-3">
-        <div className="text-gray-500 text-xs animate-pulse">正在加载地点地图…</div>
-      </div>
-    );
-  }
+  const handleCenterOnPlayer = useCallback(() => {
+    if (!locationMap) return;
+    const container = containerRef.current;
+    const cw = container?.getBoundingClientRect().width ?? 400;
+    const ch = container?.getBoundingClientRect().height ?? 300;
+    const px = locationMap.playerPos.x * TILE_SIZE * viewRef.current.zoom;
+    const py = locationMap.playerPos.y * TILE_SIZE * viewRef.current.zoom;
+    viewRef.current.offsetX = cw / 2 - px;
+    viewRef.current.offsetY = ch / 2 - py;
+    drawRef.current?.();
+  }, [locationMap]);
 
   // No location selected
   if (!currentLocationId || !currentRegion) {
@@ -240,17 +235,11 @@ export function LocationMapView() {
     );
   }
 
-  // No data yet — offer generation
-  if (!locationMap) {
+  // Loading state (auto-generating or loading)
+  if (!locationMap || isLoadingLocation) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <div className="text-gray-500 text-xs">{locationRef?.name ?? currentLocationId} — 尚未生成地点地图</div>
-        <button
-          onClick={handleGenerate}
-          className="text-[10px] px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-        >
-          🏘 生成地点
-        </button>
+        <div className="text-gray-500 text-xs animate-pulse">正在生成地点地图…</div>
         <button
           onClick={navigateBack}
           className="text-[9px] px-3 py-1 rounded bg-white/[.03] border border-white/[.06] text-gray-500 hover:text-indigo-400 transition-colors"
@@ -263,7 +252,6 @@ export function LocationMapView() {
 
   return (
     <div className="relative h-full">
-      {/* Breadcrumb + controls */}
       <div className="absolute top-2 left-2 z-10 flex items-center gap-2">
         <button
           onClick={navigateBack}
@@ -277,28 +265,17 @@ export function LocationMapView() {
       </div>
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
-          onClick={() => {
-            // Center on player position
-            const px = locationMap.playerPos.x * TILE_SIZE * viewRef.current.zoom;
-            const py = locationMap.playerPos.y * TILE_SIZE * viewRef.current.zoom;
-            const container = containerRef.current;
-            if (!container) return;
-            const rect = container.getBoundingClientRect();
-            viewRef.current.offsetX = rect.width / 2 - px;
-            viewRef.current.offsetY = rect.height / 2 - py;
-          }}
+          onClick={handleCenterOnPlayer}
           className="text-[9px] px-2 py-1 rounded bg-white/[.03] border border-white/[.06] text-gray-500 hover:text-indigo-400 transition-colors"
         >
           定位自己
         </button>
       </div>
 
-      {/* Canvas */}
       <div ref={containerRef} className="w-full h-full cursor-grab active:cursor-grabbing">
         <canvas ref={canvasRef} className="w-full h-full" />
       </div>
 
-      {/* Tooltip */}
       {tooltip && (
         <div
           className="absolute z-20 pointer-events-none bg-black/80 border border-white/10 rounded px-2 py-1 max-w-[200px]"

@@ -21,6 +21,7 @@ export function RightPanel({ onAutoPlayStart, onAutoPlayPause, onAutoPlayStop, o
   const isWaiting = useGameStore((s) => s.isWaitingForPM);
   const { requestScene, startNewDay, submitCustom } = usePMEngine();
   const openModal = useUIStore((s) => s.openModal);
+  const openMapModal = useUIStore((s) => s.openMapModal);
   // 防卡死: 刷新场景并发 + 1.5s 冷却
   const [isRefreshing, setIsRefreshing] = useState(false);
   const lastRefreshRef = useRef<number>(0);
@@ -69,6 +70,12 @@ export function RightPanel({ onAutoPlayStart, onAutoPlayPause, onAutoPlayStop, o
             </button>
           </div>
           <div className="flex gap-1.5">
+            <button
+              onClick={openMapModal}
+              className="flex-1 text-[11px] py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/70 hover:bg-emerald-500/10 transition-all"
+            >
+              🗺️ 地图
+            </button>
             <button onClick={() => submitCustom('[仔细观察周围环境]')} className="flex-1 text-[11px] py-1.5 rounded-xl bg-indigo-500/5 border border-indigo-500/10 text-indigo-400/70 hover:bg-indigo-500/10 transition-all">
               👁 观察
             </button>

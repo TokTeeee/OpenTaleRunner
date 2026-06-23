@@ -4,27 +4,29 @@ import { generateRegionMap } from '../../services/map/regionMapGenerator';
 import { renderRegionMap } from '../../services/map/tileRenderer';
 import type { Viewport } from '../../services/map/tileRenderer';
 
-
 export function RegionMapView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 1.5 });
   const dragRef = useRef(false);
   const hasDraggedRef = useRef(false);
+  const drawRef = useRef<(() => void) | null>(null);
 
   const { currentRegion, updateCurrentRegion, navigateToLocation, navigateBack } = useMapStore();
 
-  const handleGenerate = useCallback(() => {
-    if (!currentRegion) return;
-    const updated = generateRegionMap({ region: currentRegion });
-    updateCurrentRegion(updated);
-  }, [currentRegion, updateCurrentRegion]);
+  // Auto-generate region map if no locations
+  useEffect(() => {
+    if (currentRegion && currentRegion.locations.length === 0) {
+      const updated = generateRegionMap({ region: currentRegion });
+      updateCurrentRegion(updated);
+    }
+  }, [currentRegion?.id]); // only trigger on region id change, not on every update
 
   // Draw
   useEffect(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!canvas || !container || !currentRegion) return;
+    if (!canvas || !container || !currentRegion || currentRegion.locations.length === 0) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -56,9 +58,9 @@ export function RegionMapView() {
       renderRegionMap(ctx, currentRegion, viewport);
     };
 
+    drawRef.current = draw;
     draw();
 
-    // Mouse handlers
     const onMouseDown = () => { dragRef.current = true; hasDraggedRef.current = false; };
     const onMouseUp = () => { dragRef.current = false; };
     const onMouseMove = (e: MouseEvent) => {
@@ -81,7 +83,6 @@ export function RegionMapView() {
       const my = e.clientY - canvasRect.top;
       const tileSize = 16 * v.zoom;
 
-      // Check if clicked on a location
       for (const loc of currentRegion.locations) {
         const lx = loc.regionX * tileSize + v.offsetX + tileSize / 2;
         const ly = loc.regionY * tileSize + v.offsetY + tileSize / 2;
@@ -101,6 +102,7 @@ export function RegionMapView() {
     canvas.addEventListener('click', onClick);
 
     return () => {
+      drawRef.current = null;
       canvas.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
@@ -108,6 +110,19 @@ export function RegionMapView() {
       canvas.removeEventListener('click', onClick);
     };
   }, [currentRegion, navigateToLocation]);
+
+  const handleCenterOnPlayer = useCallback(() => {
+    if (!currentRegion) return;
+    const discovered = currentRegion.locations.find(l => l.discovered);
+    if (discovered) {
+      const container = containerRef.current;
+      const cw = container?.getBoundingClientRect().width ?? 400;
+      const ch = container?.getBoundingClientRect().height ?? 300;
+      viewRef.current.offsetX = -discovered.regionX * 16 * viewRef.current.zoom + cw / 2;
+      viewRef.current.offsetY = -discovered.regionY * 16 * viewRef.current.zoom + ch / 2;
+      drawRef.current?.();
+    }
+  }, [currentRegion]);
 
   if (!currentRegion) {
     return (
@@ -117,24 +132,11 @@ export function RegionMapView() {
     );
   }
 
-  const hasLocations = currentRegion.locations.length > 0;
-
-  if (!hasLocations) {
+  // Loading state while auto-generating
+  if (currentRegion.locations.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <div className="text-gray-500 text-xs">{currentRegion.name} — 尚未生成区域地图</div>
-        <button
-          onClick={handleGenerate}
-          className="text-[10px] px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
-        >
-          🗺 生成区域
-        </button>
-        <button
-          onClick={navigateBack}
-          className="text-[9px] px-3 py-1 rounded bg-white/[.03] border border-white/[.06] text-gray-500 hover:text-indigo-400 transition-colors"
-        >
-          ← 返回世界地图
-        </button>
+        <div className="text-gray-500 text-xs animate-pulse">正在生成区域地图…</div>
       </div>
     );
   }
@@ -143,14 +145,7 @@ export function RegionMapView() {
     <div className="relative h-full">
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
-          onClick={() => {
-            // Center on first discovered location
-            const discovered = currentRegion.locations.find(l => l.discovered);
-            if (discovered) {
-              viewRef.current.offsetX = -discovered.regionX * 16 * viewRef.current.zoom + 200;
-              viewRef.current.offsetY = -discovered.regionY * 16 * viewRef.current.zoom + 150;
-            }
-          }}
+          onClick={handleCenterOnPlayer}
           className="text-[9px] px-2 py-1 rounded bg-white/[.03] border border-white/[.06] text-gray-500 hover:text-indigo-400 transition-colors"
         >
           定位自己

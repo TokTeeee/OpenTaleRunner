@@ -11,12 +11,15 @@ interface UIState {
   activeModal: string | null;
   isLeftPanelCollapsed: boolean;
   isRightPanelCollapsed: boolean;
+  mapModalOpen: boolean;
   toasts: Toast[];
 
   openModal: (id: string) => void;
   closeModal: () => void;
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  openMapModal: () => void;
+  closeMapModal: () => void;
   showToast: (message: string, variant?: Toast['variant']) => void;
   dismissToast: (id: string) => void;
 }
@@ -28,12 +31,15 @@ export const useUIStore = create<UIState>((set) => ({
   activeModal: null,
   isLeftPanelCollapsed: false,
   isRightPanelCollapsed: false,
+  mapModalOpen: false,
   toasts: [],
 
   openModal: (id) => set({ activeModal: id }),
   closeModal: () => set({ activeModal: null }),
   toggleLeftPanel: () => set((s) => ({ isLeftPanelCollapsed: !s.isLeftPanelCollapsed })),
   toggleRightPanel: () => set((s) => ({ isRightPanelCollapsed: !s.isRightPanelCollapsed })),
+  openMapModal: () => set({ mapModalOpen: true }),
+  closeMapModal: () => set({ mapModalOpen: false }),
 
   showToast: (message, variant = 'info') => {
     const toast: Toast = {

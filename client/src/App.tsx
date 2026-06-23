@@ -32,6 +32,7 @@ import { SaveLoadModal } from './components/modals/SaveLoadModal';
 import { BackpackModal } from './components/modals/BackpackModal';
 import { CodexModal } from './components/modals/CodexModal';
 import { MemoryModal } from './components/modals/MemoryModal';
+import { MapModal } from './components/modals/MapModal';
 import { DebugModeModal } from './components/modals/DebugModeModal';
 import { DiceResultOverlay } from './components/game/DiceResultOverlay';
 import { PMThinkingOverlay } from './components/game/PMThinkingOverlay';
@@ -161,6 +162,8 @@ export default function App() {
   const setDiceResult = useGameStore((s) => s.setDiceResult);
   const activeModal = useUIStore((s) => s.activeModal);
   const openModal = useUIStore((s) => s.openModal);
+  const mapModalOpen = useUIStore((s) => s.mapModalOpen);
+  const closeMapModal = useUIStore((s) => s.closeMapModal);
   const toasts = useUIStore((s) => s.toasts);
   const settings = useSettingsStore();
   const serverEndpoint = useSettingsStore((s) => s.server.endpoint);
@@ -800,6 +803,7 @@ export default function App() {
       {activeModal === 'backpack' && <BackpackModal onClose={() => useUIStore.getState().closeModal()} />}
       {activeModal === 'codex' && <CodexModal onClose={() => useUIStore.getState().closeModal()} />}
       {activeModal === 'memory' && <MemoryModal onClose={() => useUIStore.getState().closeModal()} />}
+      <MapModal isOpen={mapModalOpen} onClose={closeMapModal} />
       {toasts.length > 0 && <ToastContainer />}
     </ErrorBoundary>
   );

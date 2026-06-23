@@ -10,11 +10,11 @@ export function WorldMapView() {
   const viewRef = useRef({ offsetX: 0, offsetY: 0, zoom: 1.5 });
   const dragRef = useRef(false);
   const hasDraggedRef = useRef(false);
+  const drawRef = useRef<(() => void) | null>(null);
 
   const { worldMap, generateAndSaveWorldMap, navigateToRegion, isLoadingWorldMap } = useMapStore();
 
   const handleGenerate = useCallback(async () => {
-    // Use storybook seed or random
     const seed = `world_${Date.now()}`;
     const data = generateWorldMap({ seed });
     await generateAndSaveWorldMap(data);
@@ -56,6 +56,7 @@ export function WorldMapView() {
       renderWorldMap(ctx, worldMap, viewport);
     };
 
+    drawRef.current = draw;
     draw();
 
     // Mouse handlers
@@ -81,7 +82,6 @@ export function WorldMapView() {
       const my = e.clientY - canvasRect.top;
       const tileSize = 16 * v.zoom;
 
-      // Check if clicked on a region
       for (const region of worldMap.regions) {
         const rx = region.worldX * tileSize + v.offsetX;
         const ry = region.worldY * tileSize + v.offsetY;
@@ -100,6 +100,7 @@ export function WorldMapView() {
     canvas.addEventListener('click', onClick);
 
     return () => {
+      drawRef.current = null;
       canvas.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('mousemove', onMouseMove);
@@ -107,6 +108,19 @@ export function WorldMapView() {
       canvas.removeEventListener('click', onClick);
     };
   }, [worldMap, navigateToRegion]);
+
+  const handleCenterOnPlayer = useCallback(() => {
+    if (!worldMap) return;
+    const playerRegion = worldMap.regions.find(r => r.id === worldMap.playerPos?.regionId);
+    if (playerRegion) {
+      const container = containerRef.current;
+      const cw = container?.getBoundingClientRect().width ?? 400;
+      const ch = container?.getBoundingClientRect().height ?? 300;
+      viewRef.current.offsetX = -playerRegion.worldX * 16 * viewRef.current.zoom + cw / 2;
+      viewRef.current.offsetY = -playerRegion.worldY * 16 * viewRef.current.zoom + ch / 2;
+      drawRef.current?.();
+    }
+  }, [worldMap]);
 
   if (!worldMap && !isLoadingWorldMap) {
     return (
@@ -126,14 +140,7 @@ export function WorldMapView() {
     <div className="relative h-full">
       <div className="absolute top-2 right-2 z-10 flex gap-1">
         <button
-          onClick={() => {
-            const { playerPos, regions } = worldMap!;
-            const playerRegion = regions.find(r => r.id === playerPos.regionId);
-            if (playerRegion) {
-              viewRef.current.offsetX = -playerRegion.worldX * 16 * viewRef.current.zoom + 200;
-              viewRef.current.offsetY = -playerRegion.worldY * 16 * viewRef.current.zoom + 150;
-            }
-          }}
+          onClick={handleCenterOnPlayer}
           className="text-[9px] px-2 py-1 rounded bg-white/[.03] border border-white/[.06] text-gray-500 hover:text-indigo-400 transition-colors"
         >
           定位自己
