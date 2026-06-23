@@ -83,8 +83,8 @@ export function WorldMapView() {
       const tileSize = 16 * v.zoom;
 
       for (const region of worldMap.regions) {
-        const rx = region.worldX * tileSize + v.offsetX;
-        const ry = region.worldY * tileSize + v.offsetY;
+        const rx = region.worldPos.x * tileSize + v.offsetX;
+        const ry = region.worldPos.y * tileSize + v.offsetY;
         const dist = Math.sqrt((mx - rx - tileSize / 2) ** 2 + (my - ry - tileSize / 2) ** 2);
         if (dist < tileSize * 1.5) {
           navigateToRegion(region.id);
@@ -116,8 +116,8 @@ export function WorldMapView() {
       const container = containerRef.current;
       const cw = container?.getBoundingClientRect().width ?? 400;
       const ch = container?.getBoundingClientRect().height ?? 300;
-      viewRef.current.offsetX = -playerRegion.worldX * 16 * viewRef.current.zoom + cw / 2;
-      viewRef.current.offsetY = -playerRegion.worldY * 16 * viewRef.current.zoom + ch / 2;
+      viewRef.current.offsetX = -playerRegion.worldPos.x * 16 * viewRef.current.zoom + cw / 2;
+      viewRef.current.offsetY = -playerRegion.worldPos.y * 16 * viewRef.current.zoom + ch / 2;
       drawRef.current?.();
     }
   }, [worldMap]);

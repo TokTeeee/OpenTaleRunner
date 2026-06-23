@@ -1,20 +1,17 @@
-import { MapView } from '../map/MapView';
 import { useUIStore } from '../../stores/uiStore';
 
 export function WorldMap() {
   const openMapModal = useUIStore((s) => s.openMapModal);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col items-center justify-center h-full gap-3">
+      <div className="text-gray-500 text-xs">地图已移至全屏模式</div>
       <button
         onClick={openMapModal}
-        className="mb-2 w-full text-[11px] py-2 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/70 hover:bg-emerald-500/10 transition-all"
+        className="text-[11px] px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-colors"
       >
         🗺️ 打开全屏地图
       </button>
-      <div className="flex-1 overflow-hidden">
-        <MapView />
-      </div>
     </div>
   );
 }

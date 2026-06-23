@@ -12,14 +12,13 @@ function makeRegion(overrides: Partial<RegionRef> = {}): RegionRef {
     id: 'region-1',
     name: '翡翠王国',
     type: 'kingdom',
-    worldX: 3,
-    worldY: 3,
+    worldPos: { x: 3, y: 3 },
     climate: 'temperate',
     terrain: 'plains',
     discovered: true,
     locations: [
-      { id: 'loc-1', name: '王都', type: 'capital', regionX: 2, regionY: 2, discovered: true },
-      { id: 'loc-2', name: '铁壁镇', type: 'town', regionX: 5, regionY: 5, discovered: true },
+      { id: 'loc-1', name: '王都', type: 'capital', regionPos: { x: 2, y: 2 }, discovered: true },
+      { id: 'loc-2', name: '铁壁镇', type: 'town', regionPos: { x: 5, y: 5 }, discovered: true },
     ],
     ...overrides,
   };

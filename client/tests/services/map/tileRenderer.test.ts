@@ -63,7 +63,7 @@ describe('tileRenderer', () => {
         height: 5,
         tiles: Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => ({ type: 'plains' }))),
         regions: [
-          { id: 'r1', name: 'Test Kingdom', type: 'kingdom', worldX: 2, worldY: 2, discovered: true },
+          { id: 'r1', name: 'Test Kingdom', type: 'kingdom', worldPos: { x: 2, y: 2 }, discovered: true },
         ],
         playerPos: null,
       } as any;
@@ -79,7 +79,7 @@ describe('tileRenderer', () => {
         height: 5,
         tiles: Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => ({ type: 'plains' }))),
         regions: [
-          { id: 'r1', name: 'Hidden', type: 'kingdom', worldX: 2, worldY: 2, discovered: false },
+          { id: 'r1', name: 'Hidden', type: 'kingdom', worldPos: { x: 2, y: 2 }, discovered: false },
         ],
         playerPos: null,
       } as any;
@@ -96,7 +96,7 @@ describe('tileRenderer', () => {
         height: 5,
         tiles: Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => ({ type: 'plains' }))),
         regions: [
-          { id: 'r1', name: 'Start', type: 'kingdom', worldX: 2, worldY: 2, discovered: true },
+          { id: 'r1', name: 'Start', type: 'kingdom', worldPos: { x: 2, y: 2 }, discovered: true },
         ],
         playerPos: { regionId: 'r1' },
       } as any;
@@ -137,7 +137,7 @@ describe('tileRenderer', () => {
       const region = {
         climate: 'temperate',
         locations: [
-          { name: 'Town', type: 'town', regionX: 5, regionY: 5, discovered: true },
+          { name: 'Town', type: 'town', regionPos: { x: 5, y: 5 }, discovered: true },
         ],
       } as any;
 
@@ -151,6 +151,20 @@ describe('tileRenderer', () => {
 
       renderRegionMap(ctx, snowRegion, defaultViewport);
       expect(ctx.fillStyle).toBe(WORLD_TILE_COLORS.snow.fill);
+    });
+
+    it('should draw player marker on region map when playerLocationId is set', () => {
+      const ctx = createMockCtx();
+      const region = {
+        climate: 'temperate',
+        locations: [
+          { id: 'loc1', name: 'Town', type: 'town', regionPos: { x: 5, y: 5 }, discovered: true },
+        ],
+      } as any;
+
+      renderRegionMap(ctx, region, defaultViewport, 'loc1');
+      // Player label '你' should be drawn
+      expect(ctx.fillText).toHaveBeenCalledWith('你', expect.any(Number), expect.any(Number));
     });
   });
 

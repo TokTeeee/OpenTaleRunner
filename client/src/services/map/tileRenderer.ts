@@ -54,8 +54,8 @@ export function renderWorldMap(
   if (worldMap.playerPos?.regionId) {
     const playerRegion = worldMap.regions.find(r => r.id === worldMap.playerPos!.regionId);
     if (playerRegion) {
-      const px = playerRegion.worldX * tileSize + offsetX + tileSize / 2;
-      const py = playerRegion.worldY * tileSize + offsetY + tileSize / 2;
+      const px = (playerRegion.worldPos.x) * tileSize + offsetX + tileSize / 2;
+      const py = (playerRegion.worldPos.y) * tileSize + offsetY + tileSize / 2;
 
       // Glow
       const glow = ctx.createRadialGradient(px, py, 3, px, py, 15 * zoom);
@@ -93,8 +93,8 @@ function drawRegionMarker(
   zoom: number,
 ) {
   const tileSize = TILE_SIZE * zoom;
-  const rx = region.worldX * tileSize + offsetX + tileSize / 2;
-  const ry = region.worldY * tileSize + offsetY + tileSize / 2;
+  const rx = region.worldPos.x * tileSize + offsetX + tileSize / 2;
+  const ry = region.worldPos.y * tileSize + offsetY + tileSize / 2;
 
   const colors = REGION_TYPE_COLORS[region.type] || REGION_TYPE_COLORS.kingdom;
   const markerSize = 8 * zoom;
@@ -154,6 +154,8 @@ export function renderRegionMap(
   ctx: CanvasRenderingContext2D,
   region: RegionRef,
   viewport: Viewport,
+  playerLocationId?: string | null,
+  selectedLocationId?: string | null,
 ): void {
   const { offsetX, offsetY, zoom, canvasWidth, canvasHeight } = viewport;
   const tileSize = TILE_SIZE * zoom;
@@ -175,8 +177,8 @@ export function renderRegionMap(
 
   // Location markers
   for (const loc of region.locations) {
-    const lx = loc.regionX * tileSize + offsetX + tileSize / 2;
-    const ly = loc.regionY * tileSize + offsetY + tileSize / 2;
+    const lx = loc.regionPos.x * tileSize + offsetX + tileSize / 2;
+    const ly = loc.regionPos.y * tileSize + offsetY + tileSize / 2;
     if (lx < -tileSize * 2 || lx > canvasWidth + tileSize * 2 || ly < -tileSize * 2 || ly > canvasHeight + tileSize * 2) continue;
 
     const colors = LOCATION_TYPE_COLORS[loc.type] || LOCATION_TYPE_COLORS.town;
@@ -212,6 +214,66 @@ export function renderRegionMap(
       ctx.fillText('?', lx, ly);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  // Draw player position
+  if (playerLocationId) {
+    const playerLoc = region.locations.find(l => l.id === playerLocationId);
+    if (playerLoc) {
+      const px = playerLoc.regionPos.x * tileSize + offsetX + tileSize / 2;
+      const py = playerLoc.regionPos.y * tileSize + offsetY + tileSize / 2;
+
+      // Glow
+      const glow = ctx.createRadialGradient(px, py, 3, px, py, 15 * zoom);
+      glow.addColorStop(0, PLAYER_MARKER.glow);
+      glow.addColorStop(1, 'rgba(96,96,255,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(px, py, 15 * zoom, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Dot
+      ctx.fillStyle = PLAYER_MARKER.fill;
+      ctx.beginPath();
+      ctx.arc(px, py, 5 * zoom, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = PLAYER_MARKER.border;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Label
+      if (zoom > 0.8) {
+        ctx.fillStyle = '#a0a0ff';
+        ctx.font = `bold ${Math.max(9, 9 * zoom)}px system-ui, sans-serif`;
+        ctx.fillText('你', px + 8 * zoom, py + 3 * zoom);
+      }
+    }
+  }
+
+  // Draw highlight on selected location (when not at that location)
+  if (selectedLocationId && selectedLocationId !== playerLocationId) {
+    const selLoc = region.locations.find(l => l.id === selectedLocationId);
+    if (selLoc) {
+      const sx = selLoc.regionPos.x * tileSize + offsetX + tileSize / 2;
+      const sy = selLoc.regionPos.y * tileSize + offsetY + tileSize / 2;
+      const radius = tileSize * 1.2;
+
+      // Highlight border
+      ctx.strokeStyle = '#fbbf24'; // amber-400
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius + 4, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Subtle glow
+      const glow = ctx.createRadialGradient(sx, sy, radius, sx, sy, radius + 12);
+      glow.addColorStop(0, 'rgba(251,191,36,0.15)');
+      glow.addColorStop(1, 'rgba(251,191,36,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(sx, sy, radius + 12, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }

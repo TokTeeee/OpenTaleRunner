@@ -27,8 +27,8 @@ describe('worldMapGenerator', () => {
     for (let i = 0; i < a.regions.length; i++) {
       expect(a.regions[i].id).toBe(b.regions[i].id);
       expect(a.regions[i].name).toBe(b.regions[i].name);
-      expect(a.regions[i].worldX).toBe(b.regions[i].worldX);
-      expect(a.regions[i].worldY).toBe(b.regions[i].worldY);
+      expect(a.regions[i].worldPos.x).toBe(b.regions[i].worldPos.x);
+      expect(a.regions[i].worldPos.y).toBe(b.regions[i].worldPos.y);
     }
   });
 

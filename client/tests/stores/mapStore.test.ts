@@ -66,6 +66,7 @@ describe('mapStore', () => {
       expect(s.playerRegionId).toBeNull();
       expect(s.playerLocationId).toBeNull();
       expect(s.playerLocationPos).toEqual({ x: 0, y: 0 });
+      expect(s.selectedLocationId).toBeNull();
       expect(s.isLoadingWorldMap).toBe(false);
       expect(s.isLoadingRegion).toBe(false);
       expect(s.isLoadingLocation).toBe(false);
@@ -239,6 +240,7 @@ describe('mapStore', () => {
         playerRegionId: 'r1',
         playerLocationId: 'l1',
         playerLocationPos: { x: 5, y: 10 },
+        selectedLocationId: 'loc_2',
       });
 
       await useMapStore.getState().resetMapData();
@@ -254,8 +256,104 @@ describe('mapStore', () => {
       expect(s.playerRegionId).toBeNull();
       expect(s.playerLocationId).toBeNull();
       expect(s.playerLocationPos).toEqual({ x: 0, y: 0 });
+      expect(s.selectedLocationId).toBeNull();
 
       expect(mockClearAllMapData).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('setSelectedLocationId', () => {
+    it('设置 selectedLocationId', () => {
+      useMapStore.getState().setSelectedLocationId('loc_1');
+      expect(useMapStore.getState().selectedLocationId).toBe('loc_1');
+    });
+
+    it('清除 selectedLocationId', () => {
+      useMapStore.setState({ selectedLocationId: 'loc_1' });
+      useMapStore.getState().setSelectedLocationId(null);
+      expect(useMapStore.getState().selectedLocationId).toBeNull();
+    });
+  });
+
+  describe('navigateToLocation 访问控制', () => {
+    it('玩家不在该地点时只高亮，不导航', async () => {
+      useMapStore.setState({
+        viewLevel: 'region',
+        currentRegionId: 'region_1',
+        currentRegion: makeRegion(),
+        playerLocationId: 'loc_player',
+        selectedLocationId: null,
+      });
+
+      await useMapStore.getState().navigateToLocation('loc_other');
+
+      const s = useMapStore.getState();
+      expect(s.viewLevel).toBe('region'); // 不变
+      expect(s.currentLocationId).toBeNull(); // 不变
+      expect(s.selectedLocationId).toBe('loc_other'); // 高亮
+    });
+
+    it('玩家在该地点时正常导航', async () => {
+      mockGetLocationMap.mockResolvedValue(makeLocationMap());
+
+      useMapStore.setState({
+        viewLevel: 'region',
+        currentRegionId: 'region_1',
+        currentRegion: makeRegion(),
+        playerLocationId: 'loc_1',
+        selectedLocationId: null,
+      });
+
+      await useMapStore.getState().navigateToLocation('loc_1');
+
+      const s = useMapStore.getState();
+      expect(s.viewLevel).toBe('location');
+      expect(s.currentLocationId).toBe('loc_1');
+      expect(s.selectedLocationId).toBeNull(); // 导航后清除
+      expect(s.locationMap).toEqual(makeLocationMap());
+    });
+
+    it('玩家不在该地点时不加载 locationMap', async () => {
+      mockGetLocationMap.mockResolvedValue(makeLocationMap());
+
+      useMapStore.setState({
+        viewLevel: 'region',
+        currentRegionId: 'region_1',
+        currentRegion: makeRegion(),
+        playerLocationId: 'loc_player',
+      });
+
+      await useMapStore.getState().navigateToLocation('loc_other');
+
+      expect(mockGetLocationMap).not.toHaveBeenCalled();
+    });
+
+    it('playerLocationId 为 null 时只高亮', async () => {
+      useMapStore.setState({
+        viewLevel: 'region',
+        currentRegionId: 'region_1',
+        currentRegion: makeRegion(),
+        playerLocationId: null,
+      });
+
+      await useMapStore.getState().navigateToLocation('loc_1');
+
+      const s = useMapStore.getState();
+      expect(s.viewLevel).toBe('region');
+      expect(s.selectedLocationId).toBe('loc_1');
+    });
+
+    it('navigateBack 清除 selectedLocationId', () => {
+      useMapStore.setState({
+        viewLevel: 'region',
+        currentRegionId: 'region_1',
+        currentRegion: makeRegion(),
+        selectedLocationId: 'loc_1',
+      });
+
+      useMapStore.getState().navigateBack();
+
+      expect(useMapStore.getState().selectedLocationId).toBeNull();
     });
   });
 });

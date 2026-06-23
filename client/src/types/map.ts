@@ -15,7 +15,7 @@ export interface WorldMapData {
   height: number;
   tiles: WorldTile[][];    // terrain tiles
   regions: RegionRef[];    // enterable regions
-  playerPos: { regionId: string }; // player's current region
+  playerPos: { regionId: string; worldPos?: { x: number; y: number } };
   generatedAt: number;
 }
 
@@ -26,8 +26,7 @@ export interface RegionRef {
   id: string;
   name: string;
   type: RegionType;
-  worldX: number;
-  worldY: number;
+  worldPos: { x: number; y: number };
   climate: string;         // inherited from world map terrain
   terrain: string;
   discovered: boolean;
@@ -41,8 +40,7 @@ export interface LocationRef {
   id: string;
   name: string;
   type: LocationType;
-  regionX: number;
-  regionY: number;
+  regionPos: { x: number; y: number };
   discovered: boolean;
 }
 

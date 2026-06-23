@@ -12,7 +12,7 @@ export function RegionMapView() {
   const hasDraggedRef = useRef(false);
   const drawRef = useRef<(() => void) | null>(null);
 
-  const { currentRegion, updateCurrentRegion, navigateToLocation, navigateBack } = useMapStore();
+  const { currentRegion, updateCurrentRegion, navigateToLocation, navigateBack, playerLocationId, selectedLocationId } = useMapStore();
 
   // Auto-generate region map if no locations
   useEffect(() => {
@@ -55,7 +55,8 @@ export function RegionMapView() {
       viewport.offsetX = v.offsetX;
       viewport.offsetY = v.offsetY;
       viewport.zoom = v.zoom;
-      renderRegionMap(ctx, currentRegion, viewport);
+      const state = useMapStore.getState();
+      renderRegionMap(ctx, currentRegion, viewport, state.playerLocationId, state.selectedLocationId);
     };
 
     drawRef.current = draw;
@@ -84,12 +85,16 @@ export function RegionMapView() {
       const tileSize = 16 * v.zoom;
 
       for (const loc of currentRegion.locations) {
-        const lx = loc.regionX * tileSize + v.offsetX + tileSize / 2;
-        const ly = loc.regionY * tileSize + v.offsetY + tileSize / 2;
+        const lx = loc.regionPos.x * tileSize + v.offsetX + tileSize / 2;
+        const ly = loc.regionPos.y * tileSize + v.offsetY + tileSize / 2;
         const radius = tileSize * 1.2;
         const dist = Math.sqrt((mx - lx) ** 2 + (my - ly) ** 2);
         if (dist < radius) {
-          navigateToLocation(loc.id);
+          if (playerLocationId === loc.id) {
+            navigateToLocation(loc.id);
+          } else {
+            useMapStore.getState().setSelectedLocationId(loc.id);
+          }
           return;
         }
       }
@@ -118,8 +123,8 @@ export function RegionMapView() {
       const container = containerRef.current;
       const cw = container?.getBoundingClientRect().width ?? 400;
       const ch = container?.getBoundingClientRect().height ?? 300;
-      viewRef.current.offsetX = -discovered.regionX * 16 * viewRef.current.zoom + cw / 2;
-      viewRef.current.offsetY = -discovered.regionY * 16 * viewRef.current.zoom + ch / 2;
+      viewRef.current.offsetX = -discovered.regionPos.x * 16 * viewRef.current.zoom + cw / 2;
+      viewRef.current.offsetY = -discovered.regionPos.y * 16 * viewRef.current.zoom + ch / 2;
       drawRef.current?.();
     }
   }, [currentRegion]);

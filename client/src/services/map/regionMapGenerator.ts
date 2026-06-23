@@ -111,7 +111,7 @@ export function generateRegionMap(options: RegionMapGenOptions): RegionRef {
 
       // Minimum distance between locations
       const minDist = 3;
-      const tooClose = locations.some(l => Math.abs(l.regionX - x) + Math.abs(l.regionY - y) < minDist);
+      const tooClose = locations.some(l => Math.abs(l.regionPos.x - x) + Math.abs(l.regionPos.y - y) < minDist);
       if (tooClose) { attempts++; continue; }
 
       usedPositions.add(posKey);
@@ -125,8 +125,7 @@ export function generateRegionMap(options: RegionMapGenOptions): RegionRef {
         id: `${region.id}_loc_${i}`,
         name,
         type: locationType,
-        regionX: x,
-        regionY: y,
+        regionPos: { x, y },
         discovered: i === 0, // first location discovered
       });
       break;

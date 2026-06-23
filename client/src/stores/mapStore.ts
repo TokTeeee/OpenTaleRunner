@@ -19,6 +19,9 @@ interface MapState {
   playerLocationId: string | null;
   playerLocationPos: { x: number; y: number };
 
+  // Selected location (for highlight when not at location)
+  selectedLocationId: string | null;
+
   // Loading states
   isLoadingWorldMap: boolean;
   isLoadingRegion: boolean;
@@ -26,6 +29,7 @@ interface MapState {
 
   // Actions
   setViewLevel: (level: MapViewLevel) => void;
+  setSelectedLocationId: (id: string | null) => void;
   navigateToRegion: (regionId: string) => Promise<void>;
   navigateToLocation: (locationId: string) => Promise<void>;
   navigateBack: () => void;
@@ -50,22 +54,33 @@ export const useMapStore = create<MapState>()((set, get) => ({
   playerLocationId: null,
   playerLocationPos: { x: 0, y: 0 },
 
+  selectedLocationId: null,
+
   isLoadingWorldMap: false,
   isLoadingRegion: false,
   isLoadingLocation: false,
 
   setViewLevel: (level) => set({ viewLevel: level }),
 
+  setSelectedLocationId: (id) => set({ selectedLocationId: id }),
+
   navigateToRegion: async (regionId) => {
     const { worldMap } = get();
     if (!worldMap) return;
     const region = worldMap.regions.find(r => r.id === regionId);
     if (!region) return;
-    set({ viewLevel: 'region', currentRegionId: regionId, currentRegion: region, currentLocationId: null, locationMap: null });
+    set({ viewLevel: 'region', currentRegionId: regionId, currentRegion: region, currentLocationId: null, locationMap: null, selectedLocationId: null });
   },
 
   navigateToLocation: async (locationId) => {
-    set({ viewLevel: 'location', currentLocationId: locationId, isLoadingLocation: true });
+    const { playerLocationId } = get();
+    if (playerLocationId !== locationId) {
+      // Player is not at this location — only highlight, don't navigate
+      set({ selectedLocationId: locationId });
+      return;
+    }
+    // Player is at this location — allow full navigation
+    set({ viewLevel: 'location', currentLocationId: locationId, isLoadingLocation: true, selectedLocationId: null });
     try {
       const locationMap = await mapStorage.getLocationMap(locationId);
       set({ locationMap, isLoadingLocation: false });
@@ -77,9 +92,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   navigateBack: () => {
     const { viewLevel } = get();
     if (viewLevel === 'location') {
-      set({ viewLevel: 'region', currentLocationId: null, locationMap: null });
+      set({ viewLevel: 'region', currentLocationId: null, locationMap: null, selectedLocationId: null });
     } else if (viewLevel === 'region') {
-      set({ viewLevel: 'world', currentRegionId: null, currentRegion: null });
+      set({ viewLevel: 'world', currentRegionId: null, currentRegion: null, selectedLocationId: null });
     }
   },
 
@@ -133,6 +148,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       playerRegionId: null,
       playerLocationId: null,
       playerLocationPos: { x: 0, y: 0 },
+      selectedLocationId: null,
     });
   },
 }));

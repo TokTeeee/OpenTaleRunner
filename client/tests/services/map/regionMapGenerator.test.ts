@@ -33,7 +33,7 @@ describe('regionMapGenerator', () => {
   it('all locations have unique positions', () => {
     const region = makeBaseRegion();
     const result = generateRegionMap({ region, locationCount: 10, gridWidth: 40, gridHeight: 30 });
-    const positions = result.locations.map(l => `${l.regionX},${l.regionY}`);
+    const positions = result.locations.map(l => `${l.regionPos.x},${l.regionPos.y}`);
     const uniquePositions = new Set(positions);
     expect(uniquePositions.size).toBe(result.locations.length);
   });
@@ -59,8 +59,8 @@ describe('regionMapGenerator', () => {
       expect(resultA.locations[i].id).toBe(resultB.locations[i].id);
       expect(resultA.locations[i].name).toBe(resultB.locations[i].name);
       expect(resultA.locations[i].type).toBe(resultB.locations[i].type);
-      expect(resultA.locations[i].regionX).toBe(resultB.locations[i].regionX);
-      expect(resultA.locations[i].regionY).toBe(resultB.locations[i].regionY);
+      expect(resultA.locations[i].regionPos.x).toBe(resultB.locations[i].regionPos.x);
+      expect(resultA.locations[i].regionPos.y).toBe(resultB.locations[i].regionPos.y);
     }
   });
 
@@ -76,8 +76,8 @@ describe('regionMapGenerator', () => {
     for (let i = 0; i < len; i++) {
       if (
         resultA.locations[i].name !== resultB.locations[i].name ||
-        resultA.locations[i].regionX !== resultB.locations[i].regionX ||
-        resultA.locations[i].regionY !== resultB.locations[i].regionY
+        resultA.locations[i].regionPos.x !== resultB.locations[i].regionPos.x ||
+        resultA.locations[i].regionPos.y !== resultB.locations[i].regionPos.y
       ) {
         differCount++;
       }

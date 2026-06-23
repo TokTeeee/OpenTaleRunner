@@ -16,7 +16,6 @@ import type { NearbyPlayer } from '../../types/multiplayer';
 import { estimateTravel } from '../../services/travel/TravelSystem';
 import { fetchNearbyPlayers } from '../../services/multiplayer/SyncServices';
 import { ImageClient } from '../../services/image/ImageClient';
-import { WorldMap } from './WorldMap';
 
 function formatGameClock(clock: number): string {
   const normalized = ((clock % 24) + 24) % 24;
@@ -27,7 +26,6 @@ function formatGameClock(clock: number): string {
 }
 
 export function EnvironmentInfo() {
-  const [envTab, setEnvTab] = useState<'env' | 'map'>('env');
   const {
     currentRegion,
     currentSubRegion,
@@ -139,34 +137,6 @@ export function EnvironmentInfo() {
 
   return (
     <div className="p-3 space-y-4 animate-in">
-      {/* Tab bar */}
-      <div className="flex border-b border-white/[.04] -mx-3 px-3">
-        <button
-          onClick={() => setEnvTab('env')}
-          className={`pb-2 px-3 text-[11px] font-medium transition-all border-b ${
-            envTab === 'env'
-              ? 'text-indigo-400 border-indigo-400'
-              : 'text-gray-600 border-transparent hover:text-gray-400'
-          }`}
-        >
-          🌤 环境
-        </button>
-        <button
-          onClick={() => setEnvTab('map')}
-          className={`pb-2 px-3 text-[11px] font-medium transition-all border-b ${
-            envTab === 'map'
-              ? 'text-emerald-400 border-emerald-400'
-              : 'text-gray-600 border-transparent hover:text-gray-400'
-          }`}
-        >
-          🗺 地图
-        </button>
-      </div>
-
-      {envTab === 'map' ? (
-        <WorldMap />
-      ) : (
-        <>
       {/* Pending action confirmation */}
       {pendingAction && (
         <TravelConfirmBar
@@ -425,8 +395,6 @@ export function EnvironmentInfo() {
             ))}
           </div>
         </div>
-      )}
-        </>
       )}
     </div>
   );

@@ -36,6 +36,16 @@
 - 控制台命令 `window.debugMapGenerate()` / `window.debugMapReset()`
 - 1328 tests 全部通过
 
+### v0.7.7 地图系统重构
+- 移除右侧面板地图TAB，统一使用全屏 MapModal 入口
+- 统一坐标系：`RegionRef.worldPos` / `LocationRef.regionPos` 替代离散坐标字段
+- 地点地图访问控制：仅玩家当前所在地点可查看详情，非玩家地点点击仅高亮
+- 区域地图新增玩家位置标记（辉光 + 圆点 + "你"标签）
+- MapView 移除 TAB 栏，只保留面包屑导航
+- RegionMapView 点击非玩家地点时高亮而非导航（琥珀色边框）
+- `WorldMap.tsx` 简化为纯按钮打开全屏地图
+- 1336 tests 全部通过
+
 ---
 
 ## v0.6.5 — 2026-06-11 (元素伤害接入战斗 + 属性架构统一 + 判定修正)

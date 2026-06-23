@@ -143,7 +143,7 @@ export function generateWorldMap(options: WorldMapGenOptions): WorldMapData {
 
       // Check minimum distance from other regions
       const minDist = 5;
-      const tooClose = regions.some(r => Math.abs(r.worldX - x) + Math.abs(r.worldY - y) < minDist);
+      const tooClose = regions.some(r => Math.abs(r.worldPos.x - x) + Math.abs(r.worldPos.y - y) < minDist);
       if (tooClose) { attempts++; continue; }
 
       usedPositions.add(posKey);
@@ -156,8 +156,7 @@ export function generateWorldMap(options: WorldMapGenOptions): WorldMapData {
         id: `region_${i}`,
         name,
         type: regionType,
-        worldX: x,
-        worldY: y,
+        worldPos: { x, y },
         climate: tile.type,
         terrain: tile.type,
         discovered: i === 0, // first region is discovered (starting area)
@@ -174,7 +173,7 @@ export function generateWorldMap(options: WorldMapGenOptions): WorldMapData {
       let nearestRegion: string | undefined;
       let nearestDist = Infinity;
       for (const region of regions) {
-        const dist = Math.abs(region.worldX - x) + Math.abs(region.worldY - y);
+        const dist = Math.abs(region.worldPos.x - x) + Math.abs(region.worldPos.y - y);
         if (dist < nearestDist) {
           nearestDist = dist;
           nearestRegion = region.id;
@@ -193,7 +192,7 @@ export function generateWorldMap(options: WorldMapGenOptions): WorldMapData {
     height,
     tiles,
     regions,
-    playerPos: { regionId: startRegion?.id ?? '' },
+    playerPos: { regionId: startRegion?.id ?? '', worldPos: startRegion?.worldPos ? { x: startRegion.worldPos.x, y: startRegion.worldPos.y } : undefined },
     generatedAt: Date.now(),
   };
 }
