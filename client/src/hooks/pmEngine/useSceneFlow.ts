@@ -14,7 +14,7 @@ import { logger } from '../../utils/logger';
 import type { Character } from '../../types/character';
 import type { SceneContext, SceneResponse } from '../../types/game';
 import { getPmEngine, resolveLocationParts, looksLikeInitializationAck } from './shared';
-import { syncMapLocationFromGame } from '../../../services/map/mapLocationSync';
+import { syncMapLocationFromGame } from '../../services/map/mapLocationSync';
 
 interface SceneFlowDeps {
   initPM: () => Promise<void>;
